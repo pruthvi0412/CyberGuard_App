@@ -1,39 +1,5 @@
-# Dependencies
 node_modules/
-.expo/
-.expo-shared/
-
-# Environment files — NEVER commit these
 .env
-.env.local
-.env.production
-
-# Build outputs
-build/
-dist/
-web-build/
-
-# Python
-__pycache__/
-*.py[cod]
-venv/
-*.pkl
-*.pyc
-models/*.pkl
-models/*.png
-
-# Logs
+uploads/
 logs/
 *.log
-npm-debug.log*
-
-# Uploads (user data — store on server / S3)
-uploads/
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/settings.json
-.idea/
