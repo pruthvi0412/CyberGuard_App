@@ -1,7 +1,0 @@
-{
-  "build": { "builder": "NIXPACKS" },
-  "deploy": {
-    "startCommand": "python3 train_model.py && gunicorn -w 2 -b 0.0.0.0:$PORT src.app:app",
-    "healthcheckPath": "/health"
-  }
-}

@@ -1,5 +1,5 @@
-node_modules/
-.env
-uploads/
-logs/
-*.log
+ml-service/
+mobile-app/
+web-app/
+.DS_Store
+*.code-workspace
