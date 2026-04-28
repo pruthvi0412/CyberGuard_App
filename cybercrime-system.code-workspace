@@ -1,0 +1,47 @@
+{
+  "folders": [
+    { "name": "🛡️ ROOT",        "path": "."            },
+    { "name": "⚙️  Backend",     "path": "backend"      },
+    { "name": "🐍 ML Service",   "path": "ml-service"   },
+    { "name": "🌐 Web App",      "path": "web-app"      },
+    { "name": "📱 Mobile App",   "path": "mobile-app"   }
+  ],
+  "settings": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.tabSize": 2,
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/__pycache__": true,
+      "**/venv": true,
+      "**/.expo": true,
+      "**/build": true
+    },
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/venv": true,
+      "**/__pycache__": true
+    },
+    "python.defaultInterpreterPath": "./ml-service/venv/bin/python",
+    "eslint.workingDirectories": ["backend", "web-app", "mobile-app"],
+    "terminal.integrated.cwd": "${workspaceFolder}",
+    "workbench.colorTheme": "Dark Modern",
+    "workbench.iconTheme": "material-icon-theme"
+  },
+  "extensions": {
+    "recommendations": [
+      "esbenp.prettier-vscode",
+      "dbaeumer.vscode-eslint",
+      "ms-python.python",
+      "ms-python.pylance",
+      "mongodb.mongodb-vscode",
+      "rangav.vscode-thunder-client",
+      "mikestead.dotenv",
+      "eamodio.gitlens",
+      "dsznajder.es7-react-js-snippets",
+      "christian-kohler.path-intellisense",
+      "usernamehw.errorlens",
+      "PKief.material-icon-theme"
+    ]
+  }
+}
