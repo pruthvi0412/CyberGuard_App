@@ -14,7 +14,7 @@ const connectDB = require('./config/database');
 const logger = require('./utils/logger');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
 
-// Route imports
+// Routes
 const authRoutes = require('./routes/auth');
 const complaintRoutes = require('./routes/complaints');
 const analyticsRoutes = require('./routes/analytics');
@@ -24,30 +24,59 @@ const userRoutes = require('./routes/users');
 const app = express();
 const server = http.createServer(app);
 
-// ── EMERGENCY CORS FIX (THE NUCLEAR PART) ────────────────────────────────────
-// This must stay at the VERY TOP of the middleware stack.
-app.use(cors({
-  origin: '*', 
+
+// ─────────────────────────────────────────────────────────
+// ✅ FIXED CORS (NO MORE RANDOM FAILURES)
+// ─────────────────────────────────────────────────────────
+
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  // add deployed frontend later
+  // 'https://your-frontend.vercel.app'
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true); // allow Postman / mobile apps
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('❌ Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
-}));
+};
 
-// Pre-flight request handling
-app.options('*', cors());
+// Apply CORS
+app.use(cors(corsOptions));
 
-// Socket.IO setup (Unrestricted for debugging)
+// Handle preflight
+app.options('*', cors(corsOptions));
+
+
+// ─────────────────────────────────────────────────────────
+// ✅ SOCKET.IO (MATCHES CORS)
+// ─────────────────────────────────────────────────────────
+
 const io = socketIo(server, {
   cors: {
-    origin: "*", 
-    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    credentials: true,
-  },
+    origin: allowedOrigins,
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
 });
+
 app.set('io', io);
 
-// ── SECURITY & OPTIMIZATION ──────────────────────────────────────────────────
-// Modified Helmet to allow cross-origin requests from your frontend
+
+// ─────────────────────────────────────────────────────────
+// SECURITY + PERFORMANCE
+// ─────────────────────────────────────────────────────────
+
 app.use(helmet({ 
   crossOriginResourcePolicy: false, 
   crossOriginEmbedderPolicy: false,
@@ -56,32 +85,43 @@ app.use(helmet({
 
 app.use(mongoSanitize());
 
-// Loosened Rate Limiting for Testing
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 2000, 
+  max: 2000,
   standardHeaders: true,
   legacyHeaders: false,
 });
 app.use('/api', limiter);
 
-// Body parsing
+
+// ─────────────────────────────────────────────────────────
+// BODY PARSING
+// ─────────────────────────────────────────────────────────
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
 app.use(compression());
 app.use(morgan('dev'));
 
-// Static path for evidence uploads
+
+// ─────────────────────────────────────────────────────────
+// STATIC FILES
+// ─────────────────────────────────────────────────────────
+
 app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
 
-// ── ROUTES ───────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────
+// ROUTES
+// ─────────────────────────────────────────────────────────
+
 app.get('/', (req, res) => {
-  res.status(200).send('Cybercrime API is active and unrestricted');
+  res.status(200).send('Cybercrime API is active');
 });
 
-// Health check
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'OK', cors: 'Unrestricted' });
+  res.status(200).json({ status: 'OK' });
 });
 
 app.use('/api/auth', authRoutes);
@@ -90,25 +130,39 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/users', userRoutes);
 
-// ── ERROR HANDLING ───────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────
+// ERROR HANDLING
+// ─────────────────────────────────────────────────────────
+
 app.use(notFound);
 app.use(errorHandler);
 
-// Socket.IO connection handling
+
+// ─────────────────────────────────────────────────────────
+// SOCKET CONNECTION
+// ─────────────────────────────────────────────────────────
+
 io.on('connection', (socket) => {
   logger.info(`Client connected: ${socket.id}`);
 });
 
-// STARTUP
+
+// ─────────────────────────────────────────────────────────
+// START SERVER
+// ─────────────────────────────────────────────────────────
+
 const PORT = process.env.PORT || 5002;
 
 const startServer = async () => {
   try {
     await connectDB();
+
     server.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 NUCLEAR BACKEND LIVE ON PORT ${PORT}`);
-      console.log(`📡 CORS POLICY: [ALLOW ALL]`);
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`✅ CORS configured properly`);
     });
+
   } catch (error) {
     console.error(`❌ Startup Error: ${error.message}`);
   }
