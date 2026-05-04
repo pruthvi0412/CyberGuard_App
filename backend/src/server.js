@@ -1,7 +1,7 @@
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
-const cors = require('cors'); 
+const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const compression = require('compression');
@@ -24,23 +24,17 @@ const userRoutes = require('./routes/users');
 const app = express();
 const server = http.createServer(app);
 
-
 // ─────────────────────────────────────────────────────────
-// ✅ FIXED CORS (NO MORE RANDOM FAILURES)
+// ✅ FIXED CORS & SOCKET CONFIGURATION
 // ─────────────────────────────────────────────────────────
-
 const allowedOrigins = [
   'http://localhost:3000',
-  'http://127.0.0.1:3000',
-  // add deployed frontend later
-  // 'https://your-frontend.vercel.app'
+  'http://127.0.0.1:3000'
 ];
 
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true); // allow Postman / mobile apps
-
-    if (allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error('❌ Not allowed by CORS'));
@@ -51,16 +45,8 @@ const corsOptions = {
   credentials: true
 };
 
-// Apply CORS
 app.use(cors(corsOptions));
-
-// Handle preflight
-app.options('*', cors(corsOptions));
-
-
-// ─────────────────────────────────────────────────────────
-// ✅ SOCKET.IO (MATCHES CORS)
-// ─────────────────────────────────────────────────────────
+app.options('*', cors(corsOptions)); // Required for Preflight requests
 
 const io = socketIo(server, {
   cors: {
@@ -69,60 +55,25 @@ const io = socketIo(server, {
     credentials: true
   }
 });
-
 app.set('io', io);
 
-
 // ─────────────────────────────────────────────────────────
-// SECURITY + PERFORMANCE
+// SECURITY & PERFORMANCE
 // ─────────────────────────────────────────────────────────
-
-app.use(helmet({ 
-  crossOriginResourcePolicy: false, 
-  crossOriginEmbedderPolicy: false,
-  contentSecurityPolicy: false 
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+  contentSecurityPolicy: false
 }));
-
 app.use(mongoSanitize());
-
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 2000,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use('/api', limiter);
-
-
-// ─────────────────────────────────────────────────────────
-// BODY PARSING
-// ─────────────────────────────────────────────────────────
-
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
 app.use(compression());
 app.use(morgan('dev'));
 
-
 // ─────────────────────────────────────────────────────────
-// STATIC FILES
+// ROUTES & ERROR HANDLING
 // ─────────────────────────────────────────────────────────
-
-app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
-
-
-// ─────────────────────────────────────────────────────────
-// ROUTES
-// ─────────────────────────────────────────────────────────
-
-app.get('/', (req, res) => {
-  res.status(200).send('Cybercrime API is active');
-});
-
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'OK' });
-});
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/complaints', complaintRoutes);
@@ -130,28 +81,16 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/users', userRoutes);
 
-
-// ─────────────────────────────────────────────────────────
-// ERROR HANDLING
-// ─────────────────────────────────────────────────────────
-
 app.use(notFound);
 app.use(errorHandler);
-
-
-// ─────────────────────────────────────────────────────────
-// SOCKET CONNECTION
-// ─────────────────────────────────────────────────────────
 
 io.on('connection', (socket) => {
   logger.info(`Client connected: ${socket.id}`);
 });
 
-
 // ─────────────────────────────────────────────────────────
 // START SERVER
 // ─────────────────────────────────────────────────────────
-
 const PORT = process.env.PORT || 5002;
 
 const startServer = async () => {
@@ -159,15 +98,11 @@ const startServer = async () => {
     await connectDB();
 
     server.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`✅ CORS configured properly`);
+      console.log(`🚀 Main Server running on http://localhost:${PORT}`);
     });
-
   } catch (error) {
     console.error(`❌ Startup Error: ${error.message}`);
   }
 };
 
 startServer();
-
-module.exports = { app, io };

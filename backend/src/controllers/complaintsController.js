@@ -264,7 +264,7 @@ exports.updateStatus = async (req, res, next) => {
 exports.trackComplaint = async (req, res, next) => {
   try {
     const complaint = await Complaint.findOne({ complaintId: req.params.complaintId })
-      .select('complaintId status category severity title timeline createdAt updatedAt')
+      .select('complaintId status category severity title description evidence timeline createdAt updatedAt')
       .lean();
 
     if (!complaint) return next(new AppError('Complaint not found. Please check the ID.', 404));
@@ -284,5 +284,22 @@ exports.deleteComplaint = async (req, res, next) => {
     res.json({ status: 'success', message: 'Complaint deleted.' });
   } catch (error) {
     next(error);
+  }
+};
+
+// @desc    Analyze description for real-time feedback
+// @route   POST /api/complaints/analyze
+exports.analyzeDescription = async (req, res, next) => {
+  try {
+    const { text } = req.body;
+    if (!text || text.length < 5) {
+      return res.json({ status: 'success', data: { category: 'other', confidence: 0 } });
+    }
+
+    const prediction = await mlService.predict(text);
+    res.json({ status: 'success', data: prediction });
+  } catch (error) {
+    logger.warn(`AI analysis failed: ${error.message}`);
+    res.json({ status: 'fail', message: 'Analysis service unavailable' });
   }
 };

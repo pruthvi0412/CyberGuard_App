@@ -86,12 +86,13 @@ const getMe = async (req, res, next) => {
 // 3. REGISTER LOGIC
 const register = async (req, res, next) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, role = 'user' } = req.body;
     
     const newUser = await User.create({
       name,
       email: email.toLowerCase(),
-      password
+      password,
+      role
     });
 
     const { accessToken, refreshToken } = generateTokens(newUser._id);
@@ -99,7 +100,7 @@ const register = async (req, res, next) => {
     res.status(201).json({
       status: 'success',
       data: {
-        user: { id: newUser._id, name: newUser.name, email: newUser.email },
+        user: { id: newUser._id, name: newUser.name, email: newUser.email, role: newUser.role },
         accessToken,
         refreshToken
       }

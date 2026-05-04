@@ -41,11 +41,16 @@ const complaintSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Category is required'],
     trim: true,
-    // This setter ensures that even if you type 'phishing', 
-    // it saves as 'Phishing' to match the enum
-    set: v => v.charAt(0).toUpperCase() + v.slice(1).toLowerCase(),
+    set: v => {
+      if (!v) return v;
+      // Convert snake_case or messy strings to "Title Case With Spaces"
+      return v.split(/[_\s]/)
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ')
+        .replace('Cyberbullying', 'Cyber Bullying'); // Handle specific case
+    },
     enum: {
-      values: ['Financial Fraud', 'Cyber Bullying', 'Data Breach', 'Phishing', 'Other'],
+      values: ['Financial Fraud', 'Cyber Bullying', 'Data Breach', 'Phishing', 'Identity Theft', 'Online Fraud', 'Hacking', 'Ransomware', 'Social Media Crime', 'Child Exploitation', 'Other'],
       message: '{VALUE} is not a supported category'
     }
   },
@@ -53,22 +58,57 @@ const complaintSchema = new mongoose.Schema({
   timeline: [timelineSchema],
   status: {
     type: String,
-    enum: ['pending', 'in-progress', 'resolved', 'rejected'],
+    enum: ['pending', 'under_review', 'investigating', 'resolved', 'closed', 'rejected', 'in-progress'],
     default: 'pending',
+  },
+  assignedTo: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
   },
   severity: {
     type: String,
     enum: ['low', 'medium', 'high'],
     default: 'low',
+  },
+  victimDetails: {
+    incidentDate: { type: Date },
+    incidentTime: { type: String },
+    location: { type: String },
+  },
+  suspectInfo: {
+    name: { type: String },
+    details: { type: String },
+  },
+  location: {
+    type: { type: String, default: 'Point' },
+    coordinates: [Number],
+  },
+  isAnonymous: {
+    type: Boolean,
+    default: false,
+  },
+  source: {
+    type: String,
+    default: 'web',
+  },
+  mlPrediction: {
+    category: String,
+    confidence: Number,
+    scores: Object,
+    modelVersion: String,
+    predictedAt: Date,
   }
 }, { timestamps: true });
 
 // Auto-generate Complaint ID before saving
-complaintSchema.pre('save', function(next) {
+complaintSchema.pre('save', function (next) {
   if (!this.complaintId) {
     this.complaintId = 'CMP-' + Math.floor(100000 + Math.random() * 900000);
   }
   next();
 });
+
+// Index for text search
+complaintSchema.index({ title: 'text', description: 'text' });
 
 module.exports = mongoose.model('Complaint', complaintSchema);
