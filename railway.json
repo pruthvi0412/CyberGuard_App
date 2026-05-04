@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "python3 backend/src/app.py",
+    "startCommand": "python3 ml-service/src/app.py",
     "restartPolicyType": "ON_FAILURE"
   }
 }
