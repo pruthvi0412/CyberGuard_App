@@ -2,3 +2,7 @@ backend/.env
 web-app/.env
 ml-service/.env
 mobile-app/.env
+
+# macOS
+.DS_Store
+**/.DS_Store
