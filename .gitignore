@@ -1,5 +1,4 @@
-ml-service/
-mobile-app/
-web-app/
-.DS_Store
-*.code-workspace
+backend/.env
+web-app/.env
+ml-service/.env
+mobile-app/.env
