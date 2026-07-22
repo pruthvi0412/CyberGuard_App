@@ -20,6 +20,8 @@ const complaintRoutes = require('./routes/complaints');
 const analyticsRoutes = require('./routes/analytics');
 const adminRoutes = require('./routes/admin');
 const userRoutes = require('./routes/users');
+const chatRoutes = require('./routes/chats');
+const jarvisRoutes = require('./routes/jarvis');
 
 const app = express();
 const server = http.createServer(app);
@@ -33,15 +35,9 @@ const allowedOrigins = [
 ];
 
 const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('❌ Not allowed by CORS'));
-    }
-  },
+  origin: true, // Allow all origins for mobile/tunnel development
   methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Bypass-Tunnel-Reminder'],
   credentials: true
 };
 
@@ -80,12 +76,51 @@ app.use('/api/complaints', complaintRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/chats', chatRoutes);
+app.use('/api/jarvis', jarvisRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
 
 io.on('connection', (socket) => {
   logger.info(`Client connected: ${socket.id}`);
+
+  // Join a specific complaint chat room
+  socket.on('join-chat', (complaintId) => {
+    socket.join(`chat-${complaintId}`);
+    logger.debug(`Socket ${socket.id} joined chat room: chat-${complaintId}`);
+  });
+
+  // Relay real-time messages to the room
+  socket.on('chat-message', (data) => {
+    // Broadcast to everyone in the room (including sender for acknowledgment)
+    io.to(`chat-${data.complaintId}`).emit('new-chat-message', data);
+  });
+
+  // Global Network Chat
+  socket.on('join-global', () => {
+    socket.join('global-network');
+    logger.debug(`Socket ${socket.id} joined global network chat`);
+  });
+
+  socket.on('global-message', (data) => {
+    io.to('global-network').emit('new-global-message', data);
+  });
+
+  // Private Messaging
+  socket.on('join-user', (userId) => {
+    socket.join(`user-${userId}`);
+    logger.debug(`User ${userId} joined their private room: user-${userId}`);
+  });
+
+  socket.on('private-message', (data) => {
+    // data: { sender, recipientId, content, iv }
+    io.to(`user-${data.recipientId}`).to(`user-${data.sender._id}`).emit('new-private-message', data);
+  });
+
+  socket.on('disconnect', () => {
+    logger.info(`Client disconnected: ${socket.id}`);
+  });
 });
 
 // ─────────────────────────────────────────────────────────

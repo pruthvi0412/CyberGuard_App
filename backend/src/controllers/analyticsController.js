@@ -166,6 +166,38 @@ exports.getGeographic = async (req, res, next) => {
   }
 };
 
+// @desc    Map points (coordinates)
+// @route   GET /api/analytics/map-points
+exports.getMapPoints = async (req, res, next) => {
+  try {
+    const data = await Complaint.find({
+      'location.coordinates': { $exists: true, $size: 2 },
+    })
+      .select('complaintId title category severity status location victimDetails.pincode createdAt')
+      .lean();
+
+    res.json({ status: 'success', data: { points: data } });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Public map points (Anonymized)
+// @route   GET /api/analytics/public/map-points
+exports.getPublicMapPoints = async (req, res, next) => {
+  try {
+    const data = await Complaint.find({
+      'location.coordinates': { $exists: true, $size: 2 },
+    })
+      .select('category severity location createdAt') // No IDs or Titles
+      .lean();
+
+    res.json({ status: 'success', data: { points: data } });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Status distribution
 // @route   GET /api/analytics/status-distribution
 exports.getStatusDistribution = async (req, res, next) => {
@@ -203,6 +235,56 @@ exports.getFinancialAnalysis = async (req, res, next) => {
     res.json({
       status: 'success',
       data: { financialAnalysis: data, totalFinancialLoss },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Suspect link analysis (identify serial scammers)
+// @route   GET /api/analytics/link-analysis
+exports.getLinkAnalysis = async (req, res, next) => {
+  try {
+    // Link by Extracted Phone Numbers
+    const phoneLinks = await Complaint.aggregate([
+      { $match: { 'ocrData.extracted.phones': { $exists: true, $ne: [] } } },
+      { $unwind: '$ocrData.extracted.phones' },
+      {
+        $group: {
+          _id: '$ocrData.extracted.phones',
+          count: { $sum: 1 },
+          cases: { $push: { id: '$complaintId', category: '$category', severity: '$severity', status: '$status' } }
+        }
+      },
+      { $match: { count: { $gt: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 50 }
+    ]);
+
+    // Link by Extracted UPI IDs
+    const upiLinks = await Complaint.aggregate([
+      { $match: { 'ocrData.extracted.upis': { $exists: true, $ne: [] } } },
+      { $unwind: '$ocrData.extracted.upis' },
+      {
+        $group: {
+          _id: '$ocrData.extracted.upis',
+          count: { $sum: 1 },
+          cases: { $push: { id: '$complaintId', category: '$category', severity: '$severity', status: '$status' } }
+        }
+      },
+      { $match: { count: { $gt: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 50 }
+    ]);
+
+    res.json({
+      status: 'success',
+      data: {
+        links: {
+          phones: phoneLinks,
+          upis: upiLinks
+        }
+      }
     });
   } catch (error) {
     next(error);

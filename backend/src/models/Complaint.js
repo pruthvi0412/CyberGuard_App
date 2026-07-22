@@ -74,6 +74,7 @@ const complaintSchema = new mongoose.Schema({
     incidentDate: { type: Date },
     incidentTime: { type: String },
     location: { type: String },
+    pincode: { type: String },
   },
   suspectInfo: {
     name: { type: String },
@@ -97,6 +98,19 @@ const complaintSchema = new mongoose.Schema({
     scores: Object,
     modelVersion: String,
     predictedAt: Date,
+  },
+  ocrData: {
+    rawText: String,
+    extracted: {
+      phones: [String],
+      upis: [String],
+      accounts: [String],
+    },
+    analyzedAt: Date
+  },
+  isViewed: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 

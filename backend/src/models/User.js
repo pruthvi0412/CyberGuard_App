@@ -30,7 +30,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['user', 'officer', 'admin'],
+    enum: ['user', 'officer', 'admin', 'education'],
     default: 'user',
   },
   isVerified: { type: Boolean, default: false },
@@ -48,6 +48,7 @@ const userSchema = new mongoose.Schema({
   refreshToken: { type: String, select: false },
   resetPasswordToken: { type: String, select: false },
   resetPasswordExpires: { type: Date, select: false },
+  faceDescriptor: { type: [Number], select: false }, // 128-D Face ID Hash
   notificationTokens: [{ type: String }], // FCM tokens for mobile
 }, {
   timestamps: true,

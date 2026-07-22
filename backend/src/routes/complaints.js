@@ -13,6 +13,7 @@ const complaintValidation = [
 
 // Public routes
 router.get('/track/:complaintId', ctrl.trackComplaint);
+router.get('/public/search', ctrl.publicSearch);
 router.post('/analyze', ctrl.analyzeDescription);
 
 // Protected routes

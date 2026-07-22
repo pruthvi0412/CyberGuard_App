@@ -6,6 +6,8 @@ const logger = require('../utils/logger');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const ocrService = require('../services/ocrService');
+const emailAgentService = require('../services/emailAgentService');
 
 // Multer config for file uploads
 const storage = multer.diskStorage({
@@ -49,15 +51,29 @@ exports.createComplaint = async (req, res, next) => {
     // Call ML service for classification
     let mlPrediction = null;
     try {
-      const prediction = await mlService.predict(title + ' ' + description);
+      const fullText = title + ' ' + description;
+      const prediction = await mlService.predict(fullText);
+      
+      // Keyword Boosters for Backend
+      const lowVal = fullText.toLowerCase();
+      const isPhishing = /phishing|spoof|fake|credentials|password|login|verify|link|email/i.test(lowVal);
+      const isHacking = /hack|exploit|vulnerability|unauthorized|root|admin|sql|injection|breach/i.test(lowVal);
+      const isFraud = /upi|bank|money|fund|transfer|drain|atm|card|payment|fraud|financial/i.test(lowVal);
+      const isBullying = /bully|harass|threat|abuse|hate|stalk/i.test(lowVal);
+
+      let category = prediction.category;
+      if (isFraud && !isHacking) category = 'financial_fraud';
+      else if (isPhishing && prediction.confidence < 0.6) category = 'phishing';
+      else if (isBullying && prediction.confidence < 0.4) category = 'cyberbullying';
+
       mlPrediction = {
-        category: prediction.category,
+        category: category,
         confidence: prediction.confidence,
         scores: prediction.scores,
         modelVersion: prediction.model_version,
         predictedAt: new Date(),
       };
-      logger.info(`ML prediction: ${prediction.category} (${(prediction.confidence * 100).toFixed(1)}%)`);
+      logger.info(`ML prediction: ${category} (${(prediction.confidence * 100).toFixed(1)}%)`);
     } catch (mlError) {
       logger.warn(`ML service unavailable, using default category: ${mlError.message}`);
     }
@@ -76,9 +92,16 @@ exports.createComplaint = async (req, res, next) => {
     const parsedSuspectInfo = typeof suspectInfo === 'string' ? JSON.parse(suspectInfo) : suspectInfo;
     const parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
 
-    // Determine severity from ML confidence
-    const severity = mlPrediction?.confidence > 0.8 ? 'high'
-      : mlPrediction?.confidence > 0.6 ? 'medium' : 'low';
+    // Determine severity based on category rules or ML confidence
+    let severity = 'low';
+    if (['financial_fraud', 'hacking', 'ransomware', 'child_exploitation'].includes(mlPrediction?.category)) {
+      severity = 'high';
+    } else if (mlPrediction?.category === 'phishing') {
+      severity = 'low';
+    } else {
+      severity = mlPrediction?.confidence > 0.8 ? 'high'
+        : mlPrediction?.confidence > 0.6 ? 'medium' : 'low';
+    }
 
     const complaint = await Complaint.create({
       userId: req.user._id,
@@ -117,6 +140,11 @@ exports.createComplaint = async (req, res, next) => {
 
     logger.info(`Complaint created: ${complaint.complaintId} by user ${req.user._id}`);
 
+    // Trigger OCR Background Analysis
+    if (req.files && req.files.length > 0) {
+      processOCR(complaint._id, req.files);
+    }
+
     res.status(201).json({
       status: 'success',
       message: 'Complaint submitted successfully.',
@@ -126,6 +154,47 @@ exports.createComplaint = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Helper to process OCR on uploaded images in the background
+ */
+async function processOCR(complaintId, files) {
+  try {
+    let allExtracted = { phones: [], upis: [], accounts: [] };
+    let allRawText = "";
+    
+    for (const file of files) {
+      // Only process images
+      if (file.mimetype.startsWith('image/')) {
+        const result = await ocrService.extractDataFromImage(file.path);
+        if (result) {
+          allRawText += `--- From ${file.originalname} ---\n${result.rawText}\n\n`;
+          allExtracted.phones.push(...result.extracted.phones);
+          allExtracted.upis.push(...result.extracted.upis);
+          allExtracted.accounts.push(...result.extracted.accounts);
+        }
+      }
+    }
+    
+    // Deduplicate extracted identifiers
+    allExtracted.phones = [...new Set(allExtracted.phones)];
+    allExtracted.upis = [...new Set(allExtracted.upis)];
+    allExtracted.accounts = [...new Set(allExtracted.accounts)];
+    
+    if (allRawText.trim()) {
+      await Complaint.findByIdAndUpdate(complaintId, {
+        ocrData: {
+          rawText: allRawText.trim(),
+          extracted: allExtracted,
+          analyzedAt: new Date()
+        }
+      });
+      logger.info(`OCR completed for complaint ${complaintId}`);
+    }
+  } catch (err) {
+    logger.error(`OCR Background process failed for ${complaintId}: ${err.message}`);
+  }
+}
 
 // @desc    Get all complaints (admin) or user's complaints
 // @route   GET /api/complaints
@@ -157,7 +226,7 @@ exports.getComplaints = async (req, res, next) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const sort = { [sortBy]: sortOrder === 'desc' ? -1 : 1 };
 
-    const [complaints, total] = await Promise.all([
+    const [complaints, total, statusCounts] = await Promise.all([
       Complaint.find(query)
         .populate('userId', 'name email phone')
         .populate('assignedTo', 'name email')
@@ -166,12 +235,23 @@ exports.getComplaints = async (req, res, next) => {
         .limit(parseInt(limit))
         .lean(),
       Complaint.countDocuments(query),
+      Complaint.aggregate([
+        { $match: query },
+        { $group: { _id: '$status', count: { $sum: 1 } } }
+      ])
     ]);
+
+    // Format status counts for easier consumption
+    const stats = statusCounts.reduce((acc, curr) => {
+      acc[curr._id] = curr.count;
+      return acc;
+    }, {});
 
     res.json({
       status: 'success',
       data: {
         complaints,
+        stats,
         pagination: {
           total,
           page: parseInt(page),
@@ -204,6 +284,13 @@ exports.getComplaint = async (req, res, next) => {
       return next(new AppError('Not authorized to view this complaint.', 403));
     }
 
+    // AI Email Agent: Send Viewed Email if Admin/Officer views and not previously viewed
+    if (req.user.role !== 'user' && !complaint.isViewed) {
+      complaint.isViewed = true;
+      await complaint.save();
+      emailAgentService.sendViewedEmail(complaint.userId, complaint, req.user.role || 'Officer');
+    }
+
     res.json({ status: 'success', data: { complaint } });
   } catch (error) {
     next(error);
@@ -217,7 +304,7 @@ exports.updateStatus = async (req, res, next) => {
     const { status, message, actionTaken } = req.body;
     const complaint = await Complaint.findOne({
       $or: [{ _id: req.params.id }, { complaintId: req.params.id }],
-    });
+    }).populate('userId', 'name email');
 
     if (!complaint) return next(new AppError('Complaint not found.', 404));
 
@@ -243,11 +330,15 @@ exports.updateStatus = async (req, res, next) => {
 
     // Real-time notification to user
     const io = req.app.get('io');
-    io.to(`user-${complaint.userId}`).emit('status-update', {
+    const userIdStr = complaint.userId._id ? complaint.userId._id.toString() : complaint.userId.toString();
+    io.to(`user-${userIdStr}`).emit('status-update', {
       complaintId: complaint.complaintId,
       status: complaint.status,
       message,
     });
+
+    // AI Email Agent: Send State Change Email
+    emailAgentService.sendStateChangeEmail(complaint.userId, complaint, previousStatus, status, message);
 
     res.json({
       status: 'success',
@@ -259,12 +350,43 @@ exports.updateStatus = async (req, res, next) => {
   }
 };
 
+// @desc    Public search for suspect identifiers
+// @route   GET /api/complaints/public/search
+exports.publicSearch = async (req, res, next) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.length < 5) {
+      return res.status(400).json({ status: 'fail', message: 'Search query must be at least 5 characters.' });
+    }
+
+    // Search in suspectInfo details and ocrData extracted fields
+    const results = await Complaint.find({
+      $or: [
+        { 'suspectInfo.details': { $regex: q, $options: 'i' } },
+        { 'ocrData.extracted.phones': q },
+        { 'ocrData.extracted.upis': q },
+        { 'ocrData.extracted.accounts': q },
+      ]
+    }).select('complaintId category severity status createdAt').limit(20);
+
+    res.json({
+      status: 'success',
+      data: {
+        count: results.length,
+        results: results
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Track complaint by ID (public)
 // @route   GET /api/complaints/track/:complaintId
 exports.trackComplaint = async (req, res, next) => {
   try {
     const complaint = await Complaint.findOne({ complaintId: req.params.complaintId })
-      .select('complaintId status category severity title description evidence timeline createdAt updatedAt')
+      .select('complaintId status category severity title description evidence victimDetails location timeline createdAt updatedAt')
       .lean();
 
     if (!complaint) return next(new AppError('Complaint not found. Please check the ID.', 404));

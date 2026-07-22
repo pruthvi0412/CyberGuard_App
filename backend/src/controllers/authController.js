@@ -134,6 +134,62 @@ const updatePassword = async (req, res, next) => {
     res.status(200).json({ status: 'success', message: 'Password update endpoint' });
 };
 
+// 6. FACE ID BIOMETRICS
+const enrollFace = async (req, res, next) => {
+  try {
+    const { descriptor } = req.body;
+    if (!descriptor || !Array.isArray(descriptor) || descriptor.length !== 128) {
+      return next(new AppError('Invalid face descriptor. Must be a 128-dimensional array.', 400));
+    }
+    
+    // Only Pruthvi Shetty can enroll
+    const user = await User.findById(req.user.id);
+    if (user.email !== 'pruthvishetty04@gmail.com') {
+      return next(new AppError('UNAUTHORIZED: Face ID enrollment restricted to System Admin.', 403));
+    }
+
+    user.faceDescriptor = descriptor;
+    await user.save({ validateBeforeSave: false });
+
+    logger.info(`Face ID enrolled for user: ${user.email}`);
+    res.status(200).json({ status: 'success', message: 'Face ID successfully enrolled.' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const verifyFace = async (req, res, next) => {
+  try {
+    const { descriptor } = req.body;
+    if (!descriptor || !Array.isArray(descriptor) || descriptor.length !== 128) {
+      return next(new AppError('Invalid face descriptor for verification.', 400));
+    }
+
+    // Must fetch user with select('+faceDescriptor') because it's hidden by default
+    const user = await User.findById(req.user.id).select('+faceDescriptor');
+    
+    if (!user.faceDescriptor || user.faceDescriptor.length === 0) {
+      return next(new AppError('No Face ID enrolled for this user.', 404));
+    }
+
+    // Compute Euclidean Distance
+    let sum = 0;
+    for (let i = 0; i < 128; i++) {
+      sum += Math.pow(user.faceDescriptor[i] - descriptor[i], 2);
+    }
+    const distance = Math.sqrt(sum);
+
+    // Standard face-api.js threshold is ~0.5 to 0.6
+    if (distance < 0.5) {
+      res.status(200).json({ status: 'success', message: 'Biometric verification passed.', distance });
+    } else {
+      res.status(401).json({ status: 'fail', message: 'Rejected: Biometric Mismatch.', distance });
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
 // EXPORT EVERYTHING
 module.exports = { 
   login, 
@@ -141,5 +197,7 @@ module.exports = {
   refreshToken, 
   getMe, 
   logout, 
-  updatePassword 
+  updatePassword,
+  enrollFace,
+  verifyFace
 };

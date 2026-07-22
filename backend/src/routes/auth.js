@@ -52,4 +52,8 @@ router.get('/me', protect, safe(authController.getMe));
 router.post('/logout', protect, safe(authController.logout));
 router.patch('/update-password', protect, safe(authController.updatePassword));
 
+// Face ID Routes
+router.post('/enroll-face', protect, safe(authController.enrollFace));
+router.post('/verify-face', protect, safe(authController.verifyFace));
+
 module.exports = router;
