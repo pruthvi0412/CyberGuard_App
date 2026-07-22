@@ -6,3 +6,9 @@ mobile-app/.env
 # macOS
 .DS_Store
 **/.DS_Store
+
+# Python virtual environments
+.venv/
+venv/
+**/.venv/
+**/venv/
