@@ -24,6 +24,9 @@ const useSettingsStore = create(
       offlineMode: true,
       animationSpeed: 100,
 
+      // Security Settings
+      instantPurge: false,
+
       setSetting: (key, value) => set({ [key]: value }),
       
       resetSettings: () => set({
@@ -39,6 +42,7 @@ const useSettingsStore = create(
         lowLatencyMode: false,
         offlineMode: true,
         animationSpeed: 100,
+        instantPurge: false,
       })
     }),
     {

@@ -24,10 +24,19 @@ exports.getGlobalMessages = async (req, res, next) => {
 exports.sendGlobalMessage = async (req, res, next) => {
   try {
     const { content } = req.body;
+    let attachments = [];
+    if (req.files) {
+      attachments = req.files.map(file => ({
+        filename: file.filename,
+        url: `/uploads/chats/${file.filename}`,
+        mimetype: file.mimetype
+      }));
+    }
     
     const message = await GlobalMessage.create({
       sender: req.user._id,
-      content,
+      content: content || ' ', // In case only an attachment is sent
+      attachments,
       isAnnouncement: req.user.role === 'admin'
     });
 

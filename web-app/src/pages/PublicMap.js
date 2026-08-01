@@ -23,9 +23,10 @@ export default function PublicMap() {
   }, []);
 
   const getColor = (severity) => {
-    if (severity === 'high') return '#ff4d4d';
-    if (severity === 'medium') return '#ffcc00';
-    return '#00ffaa';
+    const s = severity?.toLowerCase();
+    if (s === 'high' || s === 'critical') return '#ff4d4d'; // Red
+    if (s === 'medium') return '#ffcc00'; // Yellow
+    return '#00ffaa'; // Green
   };
 
   return (

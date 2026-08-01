@@ -33,7 +33,7 @@ const applyTheme = (theme) => {
   root.setAttribute('data-theme', actualTheme);
   
   // Set explicit background color on body to avoid flashes
-  document.body.style.backgroundColor = actualTheme === 'dark' ? '#030a0f' : '#f8fafc';
+  document.body.style.backgroundColor = actualTheme === 'dark' ? '#02060a' : '#f5f5f7';
 };
 
 export default useThemeStore;

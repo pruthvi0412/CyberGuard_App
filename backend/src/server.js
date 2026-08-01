@@ -7,6 +7,8 @@ const morgan = require('morgan');
 const compression = require('compression');
 const mongoSanitize = require('express-mongo-sanitize');
 const rateLimit = require('express-rate-limit');
+const xss = require('xss-clean');
+const hpp = require('hpp');
 const path = require('path');
 require('dotenv').config();
 
@@ -61,6 +63,8 @@ app.use(helmet({
   contentSecurityPolicy: false
 }));
 app.use(mongoSanitize());
+app.use(xss());
+app.use(hpp());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(compression());
@@ -71,7 +75,21 @@ app.use(morgan('dev'));
 // ─────────────────────────────────────────────────────────
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
-app.use('/api/auth', authRoutes);
+// Global rate limiting for auth to prevent brute force
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Increased limit for testing
+  message: { status: 'fail', message: 'Too many login attempts from this IP, please try again after 15 minutes' },
+  skip: (req, res) => {
+    const whitelistedEmails = ['pruthvishetty04@gmail.com', 'admin@cybercrime.gov'];
+    if (req.body && req.body.email && whitelistedEmails.includes(req.body.email.toLowerCase())) {
+      return true;
+    }
+    return false;
+  }
+});
+
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/admin', adminRoutes);
@@ -105,6 +123,18 @@ io.on('connection', (socket) => {
 
   socket.on('global-message', (data) => {
     io.to('global-network').emit('new-global-message', data);
+  });
+
+  // Admin Notification Room
+  socket.on('join-admin', () => {
+    socket.join('admin-room');
+    logger.debug(`Socket ${socket.id} joined admin-room`);
+  });
+
+  // User Notification Room
+  socket.on('join-room', (userId) => {
+    socket.join(`user-${userId}`);
+    logger.debug(`Socket ${socket.id} joined user room: user-${userId}`);
   });
 
   // Private Messaging

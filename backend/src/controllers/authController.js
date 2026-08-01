@@ -1,5 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { validationResult } = require('express-validator');
+const speakeasy = require('speakeasy');
+const qrcode = require('qrcode');
 const User = require('../models/User');
 const { generateTokens } = require('../middleware/auth');
 const { AppError } = require('../middleware/errorHandler');
@@ -43,30 +45,87 @@ const login = async (req, res, next) => {
       return next(new AppError('Account deactivated. Contact support.', 401));
     }
 
+    if (user.isTwoFactorEnabled) {
+      return res.status(200).json({
+        status: 'mfa_required',
+        message: 'Two-Factor Authentication required.',
+        data: { userId: user._id }
+      });
+    }
+
+    // Generate 6-digit OTP
+    const plainOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.emailOtp = await bcrypt.hash(plainOtp, 12);
+    user.emailOtpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+
     user.loginAttempts = 0;
     user.lockUntil = undefined;
-    user.lastLogin = new Date();
-
-    const { accessToken, refreshToken } = generateTokens(user._id);
-
-    user.refreshToken = refreshToken;
     await user.save({ validateBeforeSave: false });
 
-    logger.info(`User logged in: ${email}`);
+    // Send OTP via email
+    const emailAgentService = require('../services/emailAgentService');
+    emailAgentService.sendLoginOtpEmail(user, plainOtp);
+
+    logger.info(`Email OTP generated for user: ${email}`);
 
     res.json({
-      status: 'success',
-      message: 'Login successful.',
-      data: {
-        user: { id: user._id, name: user.name, email: user.email, role: user.role },
-        accessToken,
-        refreshToken,
-      },
+      status: 'email_otp_required',
+      message: 'OTP sent to your email. Please verify to login.',
+      data: { userId: user._id }
     });
   } catch (error) {
     next(error);
   }
 };
+// 1.5 VERIFY EMAIL OTP
+const verifyEmailOtp = async (req, res, next) => {
+  try {
+    const { userId, otp } = req.body;
+    
+    if (!userId || !otp) {
+      return next(new AppError('Please provide userId and otp', 400));
+    }
+
+    const user = await User.findById(userId).select('+emailOtp +emailOtpExpires +isActive');
+
+    if (!user || !user.isActive) {
+      return next(new AppError('Invalid user or inactive', 401));
+    }
+
+    if (!user.emailOtp || !user.emailOtpExpires || user.emailOtpExpires < Date.now()) {
+      return next(new AppError('OTP has expired or is invalid. Please login again.', 400));
+    }
+
+    const isMatch = await bcrypt.compare(otp, user.emailOtp);
+    if (!isMatch) {
+      return next(new AppError('Invalid OTP', 401));
+    }
+
+    // OTP Valid - Clear it and generate tokens
+    user.emailOtp = undefined;
+    user.emailOtpExpires = undefined;
+    user.lastLogin = new Date();
+    
+    const { accessToken, refreshToken } = generateTokens(user._id);
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
+
+    logger.info(`User verified email OTP and logged in: ${user.email}`);
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Login successful.',
+      data: {
+        user: { id: user._id, name: user.name, email: user.email, role: user.role },
+        accessToken,
+        refreshToken
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 // 2. GET ME (Fixes the Postman Loading issue)
 const getMe = async (req, res, next) => {
@@ -86,12 +145,13 @@ const getMe = async (req, res, next) => {
 // 3. REGISTER LOGIC
 const register = async (req, res, next) => {
   try {
-    const { name, email, password, role = 'user' } = req.body;
+    const { name, email, password, phone, role = 'user' } = req.body;
     
     const newUser = await User.create({
       name,
       email: email.toLowerCase(),
       password,
+      phone,
       role
     });
 
@@ -131,7 +191,129 @@ const refreshToken = async (req, res, next) => {
     res.status(200).json({ status: 'success', message: 'Token refresh endpoint' });
 };
 const updatePassword = async (req, res, next) => {
-    res.status(200).json({ status: 'success', message: 'Password update endpoint' });
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return next(new AppError('Please provide current and new password', 400));
+    }
+    const user = await User.findById(req.user.id).select('+password');
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return next(new AppError('Incorrect current password', 401));
+    }
+    user.password = newPassword;
+    await user.save();
+    
+    // Issue a new token to invalidate old sessions (optional, but good practice)
+    const { accessToken, refreshToken } = generateTokens(user._id);
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
+
+    res.status(200).json({ 
+      status: 'success', 
+      message: 'Password updated successfully',
+      data: { accessToken, refreshToken }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 5.5 TWO FACTOR AUTHENTICATION
+const generate2FA = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id);
+    const secret = speakeasy.generateSecret({
+      name: `CyberGuard (${user.email})`
+    });
+    user.twoFactorSecret = secret.base32;
+    await user.save({ validateBeforeSave: false });
+
+    res.status(200).json({
+      status: 'success',
+      data: { secret: secret.base32, otpauth: secret.otpauth_url }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const verify2FA = async (req, res, next) => {
+  try {
+    const { token } = req.body;
+    const user = await User.findById(req.user.id).select('+twoFactorSecret');
+
+    const verified = speakeasy.totp.verify({
+      secret: user.twoFactorSecret,
+      encoding: 'base32',
+      token,
+      window: 2
+    });
+
+    if (verified) {
+      user.isTwoFactorEnabled = true;
+      await user.save({ validateBeforeSave: false });
+      res.status(200).json({ status: 'success', message: '2FA enabled successfully' });
+    } else {
+      return next(new AppError('Invalid token', 400));
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+const login2FA = async (req, res, next) => {
+  try {
+    const { userId, token } = req.body;
+    const user = await User.findById(userId).select('+twoFactorSecret +isActive');
+
+    if (!user || !user.isActive) {
+      return next(new AppError('Invalid user or inactive', 401));
+    }
+
+    const verified = speakeasy.totp.verify({
+      secret: user.twoFactorSecret,
+      encoding: 'base32',
+      token,
+      window: 2
+    });
+
+    if (verified) {
+      const { accessToken, refreshToken } = generateTokens(user._id);
+      user.refreshToken = refreshToken;
+      user.loginAttempts = 0;
+      user.lockUntil = undefined;
+      user.lastLogin = new Date();
+      await user.save({ validateBeforeSave: false });
+
+      logger.info(`User logged in via 2FA: ${user.email}`);
+
+      res.status(200).json({
+        status: 'success',
+        data: {
+          user: { id: user._id, name: user.name, email: user.email, role: user.role },
+          accessToken,
+          refreshToken
+        }
+      });
+    } else {
+      return next(new AppError('Invalid 2FA code', 401));
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+const disable2FA = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id);
+    user.isTwoFactorEnabled = false;
+    user.twoFactorSecret = undefined;
+    await user.save({ validateBeforeSave: false });
+    res.status(200).json({ status: 'success', message: '2FA disabled successfully' });
+  } catch (error) {
+    next(error);
+  }
 };
 
 // 6. FACE ID BIOMETRICS
@@ -193,11 +375,16 @@ const verifyFace = async (req, res, next) => {
 // EXPORT EVERYTHING
 module.exports = { 
   login, 
+  verifyEmailOtp,
   register, 
   refreshToken, 
   getMe, 
   logout, 
   updatePassword,
   enrollFace,
-  verifyFace
+  verifyFace,
+  generate2FA,
+  verify2FA,
+  login2FA,
+  disable2FA
 };

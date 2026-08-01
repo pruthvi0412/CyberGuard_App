@@ -74,7 +74,7 @@ const TwoFactorModal = ({ isOpen, onClose, onEnabled }) => {
                     value={setupData.otpauth} 
                     size={180} 
                     bgColor="transparent" 
-                    fgColor="#fff" 
+                    fgColor="#000000" 
                     level="H"
                   />
                 )}

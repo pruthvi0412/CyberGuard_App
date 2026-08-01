@@ -18,11 +18,13 @@ const Settings = () => {
   const [networkInfo, setNetworkInfo] = useState(null);
   const [deviceInfo, setDeviceInfo] = useState('');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [profileData, setProfileData] = useState({ name: user?.name || '', email: user?.email || '' });
+  const [profileData, setProfileData] = useState({ name: user?.name || '', email: user?.email || '', phone: user?.phone || '' });
   const [isSpeedTesting, setIsSpeedTesting] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [show2FAModal, setShow2FAModal] = useState(false);
   const [is2FAEnabled, setIs2FAEnabled] = useState(user?.isTwoFactorEnabled || false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passData, setPassData] = useState({ currentPassword: '', newPassword: '' });
 
   // Face ID State
   const [isEnrollingFace, setIsEnrollingFace] = useState(false);
@@ -62,6 +64,7 @@ const Settings = () => {
     try {
       const fd = new FormData();
       fd.append('name', profileData.name);
+      if (profileData.phone) fd.append('phone', profileData.phone);
       const { data } = await userAPI.updateProfile(fd);
       if (data.status === 'success') {
         toast.success('Profile updated');
@@ -97,6 +100,30 @@ const Settings = () => {
         } catch (err) { toast.error('Failed'); }
       }
     } else { setShow2FAModal(true); }
+  };
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+    try {
+      const { data } = await authAPI.updatePassword(passData);
+      if (data.status === 'success') {
+        toast.success('Password updated successfully!');
+        setShowPasswordModal(false);
+        setPassData({ currentPassword: '', newPassword: '' });
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Password update failed');
+    }
+  };
+
+  const handleInstantPurge = () => {
+    settings.setSetting('instantPurge', !settings.instantPurge);
+    toast(
+      !settings.instantPurge 
+        ? 'Instant Purge Activated: Sessions will self-destruct on idle.'
+        : 'Instant Purge Deactivated.',
+      { icon: !settings.instantPurge ? '🔥' : '🛡️' }
+    );
   };
 
   const startFaceEnrollment = async () => {
@@ -213,7 +240,11 @@ const Settings = () => {
               </div>
               <div>
                 <label className="setting-label">Neural Email</label>
-                <input className="liquid-input" style={{ width: '100%', boxSizing: 'border-box' }} value={isEditingProfile ? profileData.email : user?.email} onChange={(e) => setProfileData({...profileData, email: e.target.value})} readOnly={!isEditingProfile} />
+                <input className="liquid-input" style={{ width: '100%', boxSizing: 'border-box' }} value={user?.email} readOnly={true} style={{ opacity: 0.7 }} />
+              </div>
+              <div>
+                <label className="setting-label">Mobile Uplink</label>
+                <input className="liquid-input" style={{ width: '100%', boxSizing: 'border-box' }} value={isEditingProfile ? profileData.phone : (user?.phone || 'Not Configured')} onChange={(e) => setProfileData({...profileData, phone: e.target.value})} readOnly={!isEditingProfile} placeholder="+91..." />
               </div>
               <div>
                 <label className="setting-label">Clearance Role</label>
@@ -288,7 +319,7 @@ const Settings = () => {
               {[
                 { id: 'dark', label: 'Obsidian Dark', circle: '#02060A' },
                 { id: 'light', label: 'Silk Light', circle: '#F5F5F7' },
-                { id: 'system', label: 'Core Default', circle: 'linear-gradient(135deg, #02060A 50%, #F5F5F7 50%)' }
+                { id: 'system', label: 'Core Default', circle: 'linear-gradient(135deg, #007AFF 0%, #00FFD1 100%)' }
               ].map(t => (
                 <div key={t.id} onClick={() => setTheme(t.id)} style={{ padding: '24px', borderRadius: '24px', background: theme === t.id ? 'rgba(0,122,255,0.1)' : 'rgba(255,255,255,0.03)', border: `1px solid ${theme === t.id ? '#007AFF' : 'rgba(255,255,255,0.05)'}`, textAlign: 'center', cursor: 'pointer', transition: '0.3s' }}>
                   <div style={{ width: 40, height: 40, borderRadius: '50%', background: t.circle, margin: '0 auto 12px', border: '1px solid rgba(255,255,255,0.1)' }} />
@@ -313,7 +344,15 @@ const Settings = () => {
                 <div style={{ fontSize: '32px', fontWeight: 800, color: '#34C759' }}>24 <span style={{ fontSize: 16 }}>ms</span></div>
               </div>
             </div>
-            <button className="liquid-btn-primary" onClick={() => { setIsSpeedTesting(true); setTimeout(() => setIsSpeedTesting(false), 2000); }}>RE-CALIBRATE BANDWIDTH</button>
+            <button className="liquid-btn-primary" onClick={() => { 
+              setIsSpeedTesting(true); 
+              setTimeout(() => {
+                setIsSpeedTesting(false);
+                toast.success('Bandwidth optimal. Latency locked at 24ms.');
+              }, 2000); 
+            }}>
+              {isSpeedTesting ? 'CALIBRATING...' : 'RE-CALIBRATE BANDWIDTH'}
+            </button>
           </motion.div>
         );
       case 'security':
@@ -321,9 +360,9 @@ const Settings = () => {
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="setting-panel">
             <h2 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '40px' }}>Armor & Encryption</h2>
             <ToggleRow label="Two-Factor Shield" desc="Dual-layer biometric verification on login" active={is2FAEnabled} onClick={handle2FAToggle} />
-            <ToggleRow label="Instant Purge" desc="Auto-terminate sessions after inactivity" active={true} onClick={() => {}} />
+            <ToggleRow label="Instant Purge" desc="Auto-terminate sessions after inactivity" active={settings.instantPurge} onClick={handleInstantPurge} />
             <div style={{ marginTop: 40 }}>
-              <button className="liquid-btn-secondary" style={{ width: '100%' }}>ROTATE ENCRYPTION KEYS / CHANGE PASSWORD</button>
+              <button className="liquid-btn-secondary" style={{ width: '100%' }} onClick={() => setShowPasswordModal(true)}>ROTATE ENCRYPTION KEYS / CHANGE PASSWORD</button>
             </div>
           </motion.div>
         );
@@ -352,6 +391,30 @@ const Settings = () => {
         </main>
       </div>
       <TwoFactorModal isOpen={show2FAModal} onClose={() => setShow2FAModal(false)} onEnabled={() => setIs2FAEnabled(true)} />
+      
+      {/* Password Rotation Modal */}
+      {showPasswordModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowPasswordModal(false)}>
+          <div style={{ background: '#111827', width: '100%', maxWidth: 400, borderRadius: 20, border: '1px solid rgba(0, 180, 255, 0.2)', padding: 32 }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ color: '#fff', fontSize: 20, marginBottom: 24, marginTop: 0 }}>Rotate Encryption Keys</h3>
+            <form onSubmit={handlePasswordChange}>
+              <div style={{ marginBottom: 16 }}>
+                <label className="setting-label">Current Key</label>
+                <input type="password" required className="liquid-input" style={{ width: '100%', boxSizing: 'border-box' }} value={passData.currentPassword} onChange={e => setPassData({...passData, currentPassword: e.target.value})} />
+              </div>
+              <div style={{ marginBottom: 24 }}>
+                <label className="setting-label">New Secure Key</label>
+                <input type="password" required className="liquid-input" style={{ width: '100%', boxSizing: 'border-box' }} value={passData.newPassword} onChange={e => setPassData({...passData, newPassword: e.target.value})} />
+              </div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <button type="submit" className="liquid-btn-primary" style={{ flex: 1, padding: '12px' }}>CONFIRM</button>
+                <button type="button" className="liquid-btn-secondary" style={{ flex: 1, padding: '12px' }} onClick={() => setShowPasswordModal(false)}>ABORT</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <style>{`
         .setting-panel { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(40px) saturate(180%); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 32px; padding: 48px; box-shadow: 0 30px 60px rgba(0,0,0,0.5); }
         .liquid-input { background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 16px 20px; color: #fff; font-size: 15px; outline: none; }

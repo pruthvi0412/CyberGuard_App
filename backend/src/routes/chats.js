@@ -7,10 +7,10 @@ const { protect } = require('../middleware/auth');
 router.use(protect);
 
 router.get('/global', globalChatController.getGlobalMessages);
-router.post('/global', globalChatController.sendGlobalMessage);
+router.post('/global', chatController.upload, globalChatController.sendGlobalMessage);
 router.get('/private/:userId', chatController.getPrivateMessages);
-router.post('/private/:userId', chatController.sendPrivateMessage);
+router.post('/private/:userId', chatController.upload, chatController.sendPrivateMessage);
 router.get('/:complaintId', chatController.getMessages);
-router.post('/:complaintId', chatController.sendMessage);
+router.post('/:complaintId', chatController.upload, chatController.sendMessage);
 
 module.exports = router;

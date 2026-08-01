@@ -16,6 +16,9 @@ const CyberReport = () => {
   const [pincode, setPincode] = useState("");
   const [location, setLocation] = useState(null);
   const [gettingLocation, setGettingLocation] = useState(false);
+  const [email, setEmail] = useState("");
+  const [countryCode, setCountryCode] = useState("+91");
+  const [mobile, setMobile] = useState("");
 
   // 🔍 AI analysis on title + description
   useEffect(() => {
@@ -147,7 +150,10 @@ const CyberReport = () => {
       formData.append('victimDetails', JSON.stringify({ 
         incidentDate,
         pincode,
-        location: pincode // Backup for basic location field
+        location: pincode, // Backup for basic location field
+        email,
+        countryCode,
+        mobile
       }));
       
       if (location) {
@@ -405,6 +411,69 @@ const CyberReport = () => {
                   <circle cx="12" cy="10" r="3"></circle>
                 </svg>
                 {gettingLocation ? "ACQUIRING SIGNAL..." : location ? "POSITION LOCKED" : "TAG LIVE LOCATION"}
+              </div>
+            </div>
+          </div>
+
+          {/* CONTACT INFO GRID */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', marginTop: '30px' }}>
+            <div>
+              <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', display: 'block', paddingLeft: '4px' }}>Email Address</label>
+              <input
+                type="email"
+                style={{ 
+                  width: '100%',
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '16px',
+                  padding: '16px 20px',
+                  color: '#fff',
+                  fontSize: '16px',
+                  outline: 'none',
+                  transition: '0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                  boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
+                }}
+                placeholder="victim@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', display: 'block', paddingLeft: '4px' }}>Mobile Number</label>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <input
+                  type="text"
+                  style={{ 
+                    width: '80px',
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '16px',
+                    padding: '16px',
+                    color: '#fff',
+                    fontSize: '16px',
+                    outline: 'none',
+                    textAlign: 'center'
+                  }}
+                  placeholder="+91"
+                  value={countryCode}
+                  onChange={(e) => setCountryCode(e.target.value)}
+                />
+                <input
+                  type="text"
+                  style={{ 
+                    flex: 1,
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '16px',
+                    padding: '16px 20px',
+                    color: '#fff',
+                    fontSize: '16px',
+                    outline: 'none'
+                  }}
+                  placeholder="Enter mobile number"
+                  value={mobile}
+                  onChange={(e) => setMobile(e.target.value.replace(/\D/g, ''))}
+                />
               </div>
             </div>
           </div>

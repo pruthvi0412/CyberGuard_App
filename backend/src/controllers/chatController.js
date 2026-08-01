@@ -1,6 +1,37 @@
 const Message = require('../models/Message');
 const Complaint = require('../models/Complaint');
 const { AppError } = require('../middleware/errorHandler');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// Multer config for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(process.cwd(), 'uploads', 'chats');
+    fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `chat-${unique}${path.extname(file.originalname)}`);
+  },
+});
+
+const fileFilter = (req, file, cb) => {
+  const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf', 'video/mp4', 'audio/mpeg', 'audio/webm', 'audio/ogg', 'text/plain'];
+  if (allowed.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new AppError(`File type ${file.mimetype} not allowed.`, 400), false);
+  }
+};
+
+exports.upload = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: parseInt(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024 },
+}).array('attachments', 5);
 
 // @desc    Get message history for a complaint
 // @route   GET /api/chats/:complaintId
@@ -37,7 +68,16 @@ exports.getMessages = async (req, res, next) => {
 // @route   POST /api/chats/:complaintId
 exports.sendMessage = async (req, res, next) => {
   try {
-    const { content, iv, attachments } = req.body;
+    const { content, iv } = req.body;
+    let attachments = [];
+    if (req.files) {
+      attachments = req.files.map(file => ({
+        filename: file.filename,
+        url: `/uploads/chats/${file.filename}`,
+        mimetype: file.mimetype
+      }));
+    }
+
     const complaint = await Complaint.findOne({
       $or: [{ _id: req.params.complaintId }, { complaintId: req.params.complaintId }]
     });
@@ -89,11 +129,21 @@ exports.getPrivateMessages = async (req, res, next) => {
 exports.sendPrivateMessage = async (req, res, next) => {
   try {
     const { content, iv } = req.body;
+    let attachments = [];
+    if (req.files) {
+      attachments = req.files.map(file => ({
+        filename: file.filename,
+        url: `/uploads/chats/${file.filename}`,
+        mimetype: file.mimetype
+      }));
+    }
+    
     const message = await Message.create({
       sender: req.user._id,
       recipient: req.params.userId,
-      content,
-      iv
+      content: content || ' ', // In case there's only an attachment
+      iv: iv || ' ',
+      attachments
     });
     await message.populate('sender', 'name role avatar');
     res.status(201).json({ status: 'success', data: { message } });

@@ -35,6 +35,8 @@ const userSchema = new mongoose.Schema({
   },
   isVerified: { type: Boolean, default: false },
   isActive: { type: Boolean, default: true },
+  isTwoFactorEnabled: { type: Boolean, default: false },
+  twoFactorSecret: { type: String, select: false },
   avatar: { type: String },
   address: {
     street: String,
@@ -48,6 +50,8 @@ const userSchema = new mongoose.Schema({
   refreshToken: { type: String, select: false },
   resetPasswordToken: { type: String, select: false },
   resetPasswordExpires: { type: Date, select: false },
+  emailOtp: { type: String, select: false },
+  emailOtpExpires: { type: Date, select: false },
   faceDescriptor: { type: [Number], select: false }, // 128-D Face ID Hash
   notificationTokens: [{ type: String }], // FCM tokens for mobile
 }, {

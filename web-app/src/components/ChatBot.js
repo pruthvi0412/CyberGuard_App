@@ -177,9 +177,9 @@ const styles = {
     transition: 'all 0.3s ease',
   },
   window: {
-    position: 'absolute',
-    bottom: '60px',
-    right: '-100px',
+    position: 'fixed',
+    bottom: '90px',
+    left: '40px',
     width: '340px',
     height: '480px',
     background: '#050a0f',

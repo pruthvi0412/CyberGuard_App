@@ -75,6 +75,9 @@ const complaintSchema = new mongoose.Schema({
     incidentTime: { type: String },
     location: { type: String },
     pincode: { type: String },
+    email: { type: String },
+    mobile: { type: String },
+    countryCode: { type: String },
   },
   suspectInfo: {
     name: { type: String },

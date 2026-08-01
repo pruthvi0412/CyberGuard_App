@@ -5,6 +5,7 @@ import useAuthStore from './hooks/useAuthStore';
 import useThemeStore from './hooks/useThemeStore';
 import { connectSocket, onStatusUpdate, onNewComplaint, onComplaintSubmitted } from './services/socket';
 import useNotificationStore from './hooks/useNotificationStore';
+import useSettingsStore from './hooks/useSettingsStore';
 
 // Pages
 import Home from './pages/Home';
@@ -38,6 +39,7 @@ export default function App() {
   const { addNotification } = useNotificationStore();
   const { user } = useAuthStore();
   const { initTheme } = useThemeStore();
+  const { accentGlow } = useSettingsStore();
 
   useEffect(() => {
     initTheme();
@@ -74,7 +76,7 @@ export default function App() {
 
   useEffect(() => {
     if (user) {
-      const socket = connectSocket(user.id, user.role === 'admin');
+      const socket = connectSocket(user.id, user.role === 'admin' || user.role === 'officer');
 
       // Global Listeners
       const handleStatusUpdate = (data) => {
@@ -109,37 +111,57 @@ export default function App() {
   }, [user, addNotification]);
 
   return (
-    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      {/* ── Global Styles ── */}
-      <style>
-        {`
-          body { 
-            background-color: #000000 !important; 
-            margin: 0; 
-            font-family: 'Inter', sans-serif;
-            color: #ffffff;
-            -webkit-font-smoothing: antialiased;
-          }
-          #root {
-            background-color: #000000;
-            min-height: 100vh;
-          }
-          /* Custom scrollbar for the dark theme */
-          ::-webkit-scrollbar {
-            width: 8px;
-          }
-          ::-webkit-scrollbar-track {
-            background: #000000;
-          }
-          ::-webkit-scrollbar-thumb {
-            background: #222222;
-            border-radius: 4px;
-          }
-          ::-webkit-scrollbar-thumb:hover {
-            background: #333333;
-          }
-        `}
-      </style>
+    <div className={accentGlow ? 'atmospheric-glow' : ''}>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        {/* ── Global Styles ── */}
+        <style>
+          {`
+            body { 
+              margin: 0; 
+              font-family: 'Inter', sans-serif;
+              -webkit-font-smoothing: antialiased;
+              transition: background-color 0.3s ease;
+            }
+            #root {
+              min-height: 100vh;
+            }
+            .atmospheric-glow {
+              position: relative;
+            }
+            .atmospheric-glow::before {
+              content: '';
+              position: fixed;
+              top: 0; left: 0; right: 0; bottom: 0;
+              background: radial-gradient(circle at center, rgba(0, 122, 255, 0.15) 0%, transparent 60%);
+              pointer-events: none;
+              z-index: 9999;
+              mix-blend-mode: screen;
+            }
+            
+            [data-theme='light'] body {
+               color: #111;
+            }
+            [data-theme='dark'] body,
+            [data-theme='system'] body {
+               color: #ffffff;
+            }
+            
+            /* Custom scrollbar for the dark theme */
+            ::-webkit-scrollbar {
+              width: 8px;
+            }
+            ::-webkit-scrollbar-track {
+              background: transparent;
+            }
+            ::-webkit-scrollbar-thumb {
+              background: rgba(128, 128, 128, 0.3);
+              border-radius: 4px;
+            }
+            ::-webkit-scrollbar-thumb:hover {
+              background: rgba(128, 128, 128, 0.5);
+            }
+          `}
+        </style>
 
       {/* ── Notifications ── */}
       <Toaster
@@ -188,9 +210,9 @@ export default function App() {
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/forensic-scanner" element={<ProtectedRoute><ForensicScanner /></ProtectedRoute>} />
 
-        {/* Fallback to Home */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </BrowserRouter>
+    </div>
   );
 }

@@ -25,6 +25,18 @@ export default function AdminDatabase() {
     fetchData();
   }, []);
 
+  const handleDownload = () => {
+    const jsonString = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `database_export_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Database exported successfully');
+  };
+
   const filteredData = data.filter(item => 
     item.complaintId.toLowerCase().includes(search.toLowerCase()) ||
     item.title.toLowerCase().includes(search.toLowerCase())
@@ -71,6 +83,9 @@ export default function AdminDatabase() {
               <p style={{ color: '#5A6480', fontSize: 13, marginTop: 4 }}>Live intelligence repository and raw record analysis</p>
             </div>
             <div style={{ display: 'flex', gap: 12 }}>
+              <button className="btn-outline" onClick={handleDownload} style={{ padding: '0 20px', borderColor: '#00FFD1', color: '#00FFD1' }}>
+                DOWNLOAD
+              </button>
               <input 
                 className="input-cyber" 
                 placeholder="Search reference ID..."

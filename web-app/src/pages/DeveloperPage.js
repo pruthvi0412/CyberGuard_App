@@ -104,6 +104,12 @@ export default function DeveloperPage() {
       navigate('/');
     } else {
       fetchSystemData();
+      if (!jarvisSpoken.current) {
+        const startupAudio = new Audio('/voices/startup.mp3');
+        startupAudio.volume = 0.6;
+        startupAudio.play().catch(e => console.log('Audio blocked:', e));
+        jarvisSpoken.current = true;
+      }
     }
   }, [user, navigate]);
 

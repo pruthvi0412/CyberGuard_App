@@ -8,6 +8,7 @@ const path = require('path');
 const fs = require('fs');
 const ocrService = require('../services/ocrService');
 const emailAgentService = require('../services/emailAgentService');
+const smsService = require('../services/smsService');
 
 // Multer config for file uploads
 const storage = multer.diskStorage({
@@ -139,6 +140,15 @@ exports.createComplaint = async (req, res, next) => {
     });
 
     logger.info(`Complaint created: ${complaint.complaintId} by user ${req.user._id}`);
+
+    // Dispatch email alert to admins/officers
+    try {
+      const User = require('../models/User'); // Import User model dynamically if not at top
+      const adminsAndOfficers = await User.find({ role: { $in: ['admin', 'officer', 'owner'] } }).select('email name');
+      emailAgentService.sendNewComplaintAlert(adminsAndOfficers, complaint, req.user);
+    } catch (err) {
+      logger.error(`Error dispatching new complaint email alert: ${err.message}`);
+    }
 
     // Trigger OCR Background Analysis
     if (req.files && req.files.length > 0) {
@@ -304,7 +314,7 @@ exports.updateStatus = async (req, res, next) => {
     const { status, message, actionTaken } = req.body;
     const complaint = await Complaint.findOne({
       $or: [{ _id: req.params.id }, { complaintId: req.params.id }],
-    }).populate('userId', 'name email');
+    }).populate('userId', 'name email phone');
 
     if (!complaint) return next(new AppError('Complaint not found.', 404));
 
@@ -339,6 +349,9 @@ exports.updateStatus = async (req, res, next) => {
 
     // AI Email Agent: Send State Change Email
     emailAgentService.sendStateChangeEmail(complaint.userId, complaint, previousStatus, status, message);
+
+    // SMS Agent: Send State Change SMS
+    smsService.sendStatusUpdateSMS(complaint.userId, complaint, status, message);
 
     res.json({
       status: 'success',
