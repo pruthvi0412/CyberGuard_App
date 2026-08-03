@@ -30,6 +30,10 @@ import RegisterChoice from './pages/RegisterChoice';
 import Settings from './pages/Settings';
 import ForensicScanner from './pages/ForensicScanner';
 
+import OfficerDashboard from './pages/OfficerDashboard';
+import ComplaintDetails from './pages/ComplaintDetails';
+import CommunityComplaints from './pages/CommunityComplaints';
+
 // Components
 import CyberReport from './components/CyberReport';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -187,6 +191,9 @@ export default function App() {
         {/* Protected or Specific Feature Routes */}
         <Route path="/submit" element={<ProtectedRoute><CyberReport /></ProtectedRoute>} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/officer" element={<ProtectedRoute requiredRole="officer"><OfficerDashboard /></ProtectedRoute>} />
+        <Route path="/complaint/:complaintId" element={<ProtectedRoute><ComplaintDetails /></ProtectedRoute>} />
+        <Route path="/community" element={<ProtectedRoute><CommunityComplaints /></ProtectedRoute>} />
         <Route path="/track/:complaintId?" element={<TrackComplaint />} />
         <Route path="/scam-search" element={<ScamSearch />} />
         <Route path="/leak-monitor" element={<LeakMonitor />} />

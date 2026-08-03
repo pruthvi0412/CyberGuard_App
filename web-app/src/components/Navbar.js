@@ -12,6 +12,7 @@ export default function Navbar() {
   const { user, logout, isAdmin, isOfficer } = useAuthStore();
   const containerRef = useRef(null);
   const [showScanner, setShowScanner] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const scroll = (direction) => {
     if (containerRef.current) {
@@ -54,8 +55,8 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     await logout();
-    toast.success('Logged out successfully');
-    navigate('/');
+    toast.success('Logged out successfully.');
+    navigate('/login');
   };
 
   return (
@@ -69,6 +70,19 @@ export default function Navbar() {
               navigate('/developer');
             }}
           />
+        )}
+        
+        {showLogoutConfirm && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} style={{ background: '#111', padding: '30px', borderRadius: '15px', border: '1px solid #333', textAlign: 'center', minWidth: '300px' }}>
+              <h2 style={{ color: '#fff', marginTop: 0 }}>Log Out</h2>
+              <p style={{ color: '#aaa', marginBottom: '30px' }}>Are you sure you want to log out?</p>
+              <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+                <button onClick={() => setShowLogoutConfirm(false)} style={{ padding: '10px 20px', borderRadius: '8px', background: '#333', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Orbitron, monospace' }}>Cancel</button>
+                <button onClick={() => { setShowLogoutConfirm(false); handleLogout(); }} style={{ padding: '10px 20px', borderRadius: '8px', background: '#FF5252', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontFamily: 'Orbitron, monospace' }}>Logout</button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
@@ -168,36 +182,60 @@ export default function Navbar() {
           }}
         >
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', width: 'max-content' }}>
-            {navLink('/dashboard', 'COMPLAINTS', 'CORE')}
-            {navLink('/submit', 'REPORT', 'CORE')}
-            
-            <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.1)', margin: '0 10px' }} />
-            
-            {navLink('/scam-search', 'SCAM SEARCH', 'INTEL')}
-            {navLink('/forensic-scanner', 'NEURAL SCAN', 'INTEL')}
-            {navLink('/leak-monitor', 'LEAK MONITOR', 'INTEL')}
-            {navLink('/threat-map', 'HOTSPOTS', 'INTEL')}
 
-            <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.1)', margin: '0 10px' }} />
+            {/* USER role navigation */}
+            {!isAdmin() && !isOfficer() && (
+              <>
+                {navLink('/dashboard', 'MY COMPLAINTS', 'PERSONAL')}
+                {navLink('/community', 'COMMUNITY', 'BROWSE')}
+                {navLink('/submit', 'REPORT', 'ACTION')}
+                <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.1)', margin: '0 10px' }} />
+                {navLink('/scam-search', 'SCAM SEARCH', 'INTEL')}
+                {navLink('/forensic-scanner', 'NEURAL SCAN', 'INTEL')}
+                {navLink('/leak-monitor', 'LEAK MONITOR', 'INTEL')}
+                {navLink('/threat-map', 'HOTSPOTS', 'INTEL')}
+                <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.1)', margin: '0 10px' }} />
+                {navLink('/chat', 'COMMS', 'NETWORK')}
+              </>
+            )}
 
+            {/* OFFICER role navigation */}
             {isOfficer() && (
               <>
+                {navLink('/dashboard', 'COMPLAINTS', 'CORE')}
+                {navLink('/submit', 'REPORT', 'ACTION')}
+                <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.1)', margin: '0 10px' }} />
                 {navLink('/admin', 'COMMAND CENTER', 'OFFICER')}
                 {navLink('/admin/database', 'DATABASE', 'OFFICER')}
                 {navLink('/admin/link-analysis', 'FORENSICS', 'OFFICER')}
                 {navLink('/admin/map', 'MAP', 'OFFICER')}
+                <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.1)', margin: '0 10px' }} />
+                {navLink('/scam-search', 'SCAM SEARCH', 'INTEL')}
+                {navLink('/forensic-scanner', 'NEURAL SCAN', 'INTEL')}
+                {navLink('/chat', 'COMMS', 'NETWORK')}
               </>
             )}
 
-            {navLink('/chat', 'COMMS', 'NETWORK')}
-            {isAdmin() && navLink('/admin/mails', 'MAIL', 'NETWORK')}
-
+            {/* ADMIN role navigation */}
             {isAdmin() && (
               <>
+                {navLink('/dashboard', 'ALL COMPLAINTS', 'ADMIN')}
+                {navLink('/submit', 'REPORT', 'ACTION')}
                 <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.1)', margin: '0 10px' }} />
+                {navLink('/admin', 'COMMAND CENTER', 'SYSTEM')}
                 {navLink('/admin/users', 'ACCOUNTS', 'SYSTEM')}
+                {navLink('/admin/mails', 'MAIL', 'SYSTEM')}
+                {navLink('/admin/database', 'DATABASE', 'SYSTEM')}
+                {navLink('/admin/link-analysis', 'FORENSICS', 'SYSTEM')}
+                {navLink('/admin/map', 'MAP', 'SYSTEM')}
+                <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.1)', margin: '0 10px' }} />
+                {navLink('/scam-search', 'SCAM SEARCH', 'INTEL')}
+                {navLink('/forensic-scanner', 'NEURAL SCAN', 'INTEL')}
+                {navLink('/leak-monitor', 'LEAK MONITOR', 'INTEL')}
+                {navLink('/chat', 'COMMS', 'NETWORK')}
               </>
             )}
+
           </div>
         </div>
 
@@ -237,6 +275,30 @@ export default function Navbar() {
         <NotificationCenter />
         
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '20px' }}>
+          
+          {/* User Identity Display */}
+          {user && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', marginRight: '5px' }}>
+              <span style={{ color: '#E2E8F0', fontSize: '13px', fontWeight: '500', letterSpacing: '0.5px' }}>
+                {user.name || user.email}
+              </span>
+              <span style={{
+                marginTop: '4px',
+                fontSize: '9px',
+                fontWeight: '900',
+                fontFamily: 'Orbitron, monospace',
+                letterSpacing: '1.5px',
+                padding: '3px 8px',
+                borderRadius: '6px',
+                backgroundColor: user.role === 'admin' ? 'rgba(255,82,82,0.15)' : user.role === 'officer' ? 'rgba(255,167,38,0.15)' : 'rgba(0,180,255,0.15)',
+                color: user.role === 'admin' ? '#FF5252' : user.role === 'officer' ? '#FFA726' : '#00B4FF',
+                border: `1px solid ${user.role === 'admin' ? 'rgba(255,82,82,0.4)' : user.role === 'officer' ? 'rgba(255,167,38,0.4)' : 'rgba(0,180,255,0.4)'}`
+              }}>
+                {user.role ? user.role.toUpperCase() : 'USER'}
+              </span>
+            </div>
+          )}
+
           <div 
             onClick={() => navigate('/settings')}
             style={{ 
@@ -258,7 +320,7 @@ export default function Navbar() {
           </div>
         </div>
 
-        <button onClick={handleLogout} 
+        <button onClick={() => setShowLogoutConfirm(true)} 
           style={{ 
             background: 'linear-gradient(135deg, rgba(255,82,82,0.15), rgba(255,82,82,0.05))',
             border: '1px solid rgba(255,82,82,0.4)',
@@ -283,7 +345,7 @@ export default function Navbar() {
             e.target.style.boxShadow = 'none';
           }}
         >
-          DISCONNECT
+          LOGOUT
         </button>
       </div>
 

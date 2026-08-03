@@ -37,11 +37,22 @@ exports.upload = multer({
 // @route   GET /api/chats/:complaintId
 exports.getMessages = async (req, res, next) => {
   try {
-    const complaint = await Complaint.findOne({
-      $or: [{ _id: req.params.complaintId }, { complaintId: req.params.complaintId }]
-    });
+    const { complaintId } = req.params;
+    if (!complaintId || complaintId === 'undefined' || complaintId === 'null') {
+      return res.json({ status: 'success', data: { messages: [] } });
+    }
 
-    if (!complaint) return next(new AppError('Complaint not found', 404));
+    const mongoose = require('mongoose');
+    const isObjectId = mongoose.Types.ObjectId.isValid(complaintId);
+    const complaint = await Complaint.findOne(
+      isObjectId
+        ? { $or: [{ _id: complaintId }, { complaintId }] }
+        : { complaintId }
+    );
+
+    if (!complaint) {
+      return res.json({ status: 'success', data: { messages: [] } });
+    }
 
     // Access Control
     const isOwner = complaint.userId.toString() === req.user._id.toString();

@@ -53,15 +53,14 @@ const seedAdmin = async () => {
   
   if (!adminExists) {
     logger.info('Seeding admin user...');
-    const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'Admin@123456', 12);
     
     await User.create({
       name: 'System Administrator',
       email: process.env.ADMIN_EMAIL || 'admin@cybercrime.gov',
-      password: hashedPassword,
+      password: process.env.ADMIN_PASSWORD || 'Admin@123456',
       role: 'admin',
       isVerified: true,
-      phone: '0000000000',
+      phone: '9000000000',   // placeholder; real admin can update via profile
     });
     logger.info('✅ Admin user seeded successfully');
   }

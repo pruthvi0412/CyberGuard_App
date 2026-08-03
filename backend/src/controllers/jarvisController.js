@@ -1,5 +1,6 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const axios = require('axios');
+const { maskPII, logPrivacySummary } = require('../utils/privacyShield');
 
 // Placeholder for ElevenLabs Voice ID (Paul Bettany / JARVIS style community voice)
 const JARVIS_VOICE_ID = 'pNInz6obbfIdG21sKq53'; // Example ID, might need to be changed based on the user's ElevenLabs account
@@ -17,13 +18,29 @@ const jarvisChat = async (req, res) => {
             return res.status(500).json({ error: "GEMINI_API_KEY is not configured on the server." });
         }
 
-        // 1. Get Response from Gemini
+        // ── 1. Privacy Shield: mask all PII before touching any external API ──
+        const privacy = maskPII(message);
+        const maskedPrompt = privacy.masked;
+
+        // Log PII types detected (values are NEVER logged).
+        logPrivacySummary(privacy.detected);
+
+        // Build the privacy metadata object for the response.
+        const privacyMeta = {
+            enabled: true,
+            masked: privacy.detected.length > 0,
+            detectedCount: privacy.detected.length,
+            detected: [...new Set(privacy.detected.map(d => d.type))], // unique types only
+        };
+
+        // ── 2. Get Response from Gemini (using ONLY the masked prompt) ─────────
         const genAI = new GoogleGenerativeAI(geminiApiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-3.6-flash" });
         
         const systemPrompt = "You are J.A.R.V.I.S., the highly advanced AI assistant originally created by Tony Stark. You are currently assisting the system administrator. You are highly intelligent, polite, sophisticated, and slightly witty with a British demeanor. Respond to the user's prompt concisely as if speaking to them verbally. Keep your answers brief and straight to the point unless asked for details.";
         
-        const prompt = `${systemPrompt}\n\nUser: ${message}\nJARVIS:`;
+        // IMPORTANT: maskedPrompt is used here — original message never sent to Gemini.
+        const prompt = `${systemPrompt}\n\nUser: ${maskedPrompt}\nJARVIS:`;
         
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();
@@ -60,7 +77,8 @@ const jarvisChat = async (req, res) => {
                     text: responseText,
                     audio: audioBase64,
                     format: 'mp3',
-                    source: 'elevenlabs'
+                    source: 'elevenlabs',
+                    privacy: privacyMeta,
                 });
 
             } catch (ttsError) {
@@ -69,14 +87,16 @@ const jarvisChat = async (req, res) => {
             }
         }
 
-        // Fallback: If no ElevenLabs key or it failed, return just text for the frontend to speak
+        // Fallback: If no ElevenLabs key or it failed, return just text for the frontend to speak.
         return res.json({
             text: responseText,
-            source: 'text-only'
+            source: 'text-only',
+            privacy: privacyMeta,
         });
 
     } catch (error) {
-        console.error('JARVIS Chat Error:', error);
+        // Use console.error here as logger may not be available in all error paths.
+        console.error('JARVIS Chat Error:', error.message || error);
         res.status(500).json({ error: 'Failed to process JARVIS request.' });
     }
 };
