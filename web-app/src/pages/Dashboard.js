@@ -7,6 +7,7 @@ import Navbar from '../components/Navbar';
 import { complaintsAPI } from '../services/api';
 import { onStatusUpdate, offStatusUpdate } from '../services/socket';
 import useAuthStore from '../hooks/useAuthStore';
+import useTranslationStore from '../hooks/useTranslationStore';
 
 const STATUS_COLORS = {
   pending:'#FFD600', under_review:'#00B4FF', investigating:'#FF6B35',
@@ -16,6 +17,7 @@ const STATUS_COLORS = {
 export default function Dashboard() {
   const navigate  = useNavigate();
   const { user }  = useAuthStore();
+  const { t }     = useTranslationStore();
   const [complaints, setComplaints] = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [search,     setSearch]     = useState('');
@@ -59,10 +61,10 @@ export default function Dashboard() {
   }, [fetchComplaints]);
 
   const statCards = [
-    { label: 'Total Filed',  value: stats.total,      color: '#00B4FF' },
-    { label: 'Pending',      value: stats.pending,    color: '#FFD600' },
-    { label: 'In Progress',  value: stats.inProgress, color: '#FF6B35' },
-    { label: 'Resolved',     value: stats.resolved,   color: '#00C896' },
+    { label: t('DASHBOARD.TOTAL_FILED', 'Total Filed'),  value: stats.total,      color: '#00B4FF' },
+    { label: t('DASHBOARD.PENDING', 'Pending'),      value: stats.pending,    color: '#FFD600' },
+    { label: t('DASHBOARD.IN_PROGRESS', 'In Progress'),  value: stats.inProgress, color: '#FF6B35' },
+    { label: t('DASHBOARD.RESOLVED', 'Resolved'),     value: stats.resolved,   color: '#00C896' },
   ];
 
   return (
@@ -89,7 +91,7 @@ export default function Dashboard() {
         zIndex: 1
       }}>
 
-        <div style={{ marginBottom: 48 }}>
+        <div style={{ marginBottom: 36 }}>
           <h1 style={{ 
             fontSize: '3.5rem', 
             fontWeight: 800, 
@@ -98,9 +100,87 @@ export default function Dashboard() {
             WebkitTextFillColor: 'transparent',
             letterSpacing: '-2.5px',
             margin: '0 0 12px 0'
-          }}>My <span style={{ color: '#007AFF' }}>Complaints</span></h1>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '18px', fontWeight: 500 }}>Monitor and regulate your secure filings within the CyberGuard network.</p>
+          }}>{t('DASHBOARD.MY_COMPLAINTS', 'My Complaints')}</h1>
+          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '18px', fontWeight: 500 }}>
+            {t('DASHBOARD.SUBTITLE', 'Monitor and regulate your secure filings within the CyberGuard network.')}
+          </p>
         </div>
+
+        {/* Gamified Cyber Awareness Hub Hero Banner */}
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          whileHover={{ scale: 1.01 }}
+          style={{
+            background: 'linear-gradient(135deg, rgba(0, 180, 255, 0.12) 0%, rgba(0, 255, 209, 0.05) 100%)',
+            border: '1px solid rgba(0, 180, 255, 0.3)',
+            borderRadius: '24px',
+            padding: '24px 32px',
+            marginBottom: '36px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 20,
+            boxShadow: '0 10px 30px rgba(0, 180, 255, 0.15)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+            <div style={{
+              width: 56,
+              height: 56,
+              borderRadius: '16px',
+              background: 'linear-gradient(135deg, #00B4FF, #00FFD1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 28,
+              boxShadow: '0 0 20px rgba(0, 180, 255, 0.4)'
+            }}>
+              🎮
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: '#00FFD1', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                  NEW CITIZEN DEFENSE ARENA
+                </span>
+                <span style={{ background: 'rgba(255, 214, 0, 0.15)', color: '#FFD600', padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700 }}>
+                  EARN XP & BADGES
+                </span>
+              </div>
+              <h3 style={{ fontSize: '1.3rem', fontWeight: 800, margin: '4px 0 4px 0', color: '#fff' }}>
+                {t('LEARN.TITLE', 'Gamified Cyber Awareness Hub')}
+              </h3>
+              <p style={{ color: 'rgba(255,255,255,0.6)', margin: 0, fontSize: 13, maxWidth: 620 }}>
+                {t('LEARN.SUBTITLE', 'Master modern cyber defense in 1-minute interactive scenario quizzes and claim your official Cyber Defender Certificate.')}
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => navigate('/learn')}
+            style={{
+              padding: '14px 28px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #00B4FF 0%, #007AFF 100%)',
+              color: '#fff',
+              border: 'none',
+              fontWeight: 800,
+              fontSize: 12,
+              fontFamily: 'Orbitron, monospace',
+              letterSpacing: '1px',
+              cursor: 'pointer',
+              boxShadow: '0 0 20px rgba(0, 180, 255, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <span>{t('LEARN.START_CHALLENGE', 'START 1-MIN DEFENDER QUIZ')}</span>
+            <span>➔</span>
+          </button>
+        </motion.div>
 
         {/* Stat cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 24, marginBottom: 48 }}>
@@ -134,7 +214,7 @@ export default function Dashboard() {
         <div style={{ display: 'flex', gap: 16, marginBottom: 32, flexWrap: 'wrap' }}>
           <input 
             className="liquid-input"
-            placeholder="Search complaints…"
+            placeholder={t('COMMON.SEARCH', 'Search complaints…')}
             value={search} 
             onChange={e => { setSearch(e.target.value); setPage(1); }}
             style={{ 
@@ -168,7 +248,7 @@ export default function Dashboard() {
               outline: 'none'
             }}
           >
-            <option value="">ALL STATUSES</option>
+            <option value="">{t('DASHBOARD.ALL_STATUSES', 'ALL STATUSES')}</option>
             {['pending','under_review','investigating','resolved', 'closed','rejected'].map(s =>
               <option key={s} value={s}>{s.replace('_',' ').toUpperCase()}</option>)}
           </select>
@@ -187,7 +267,7 @@ export default function Dashboard() {
               boxShadow: '0 10px 20px rgba(175, 82, 222, 0.3)'
             }}
           >
-            NETWORK CHAT
+            {t('NAVBAR.COMMS', 'NETWORK CHAT')}
           </button>
           <button 
             onClick={() => navigate('/submit')}
@@ -204,7 +284,7 @@ export default function Dashboard() {
               boxShadow: '0 10px 20px rgba(255, 255, 255, 0.1)'
             }}
           >
-            + NEW FILING
+            + {t('DASHBOARD.NEW_COMPLAINT', 'NEW FILING')}
           </button>
         </div>
 

@@ -4,14 +4,17 @@ import Navbar from '../components/Navbar';
 import useAuthStore from '../hooks/useAuthStore';
 import useThemeStore from '../hooks/useThemeStore';
 import useSettingsStore from '../hooks/useSettingsStore';
+import useTranslationStore from '../hooks/useTranslationStore';
 import TwoFactorModal from '../components/TwoFactorModal';
 import { authAPI, userAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import * as faceapi from '@vladmandic/face-api';
+import { getAvatarUrl } from '../utils/avatar';
 
 const Settings = () => {
   const { user, logout, syncUser } = useAuthStore();
   const { theme, setTheme } = useThemeStore();
+  const { t, currentLanguage, setLanguage, languages } = useTranslationStore();
   const settings = useSettingsStore();
   
   const [activeTab, setActiveTab] = useState('about');
@@ -39,7 +42,7 @@ const Settings = () => {
 
   useEffect(() => {
     if (user?.avatar) {
-      setAvatarPreview(user.avatar.startsWith('http') ? user.avatar : `http://localhost:5002${user.avatar}`);
+      setAvatarPreview(getAvatarUrl(user.avatar, user.updatedAt));
     }
   }, [user]);
 
@@ -204,11 +207,12 @@ const Settings = () => {
   };
 
   const tabs = [
-    { id: 'about', label: 'About Me', icon: '👤' },
-    { id: 'notifications', label: 'Notifications', icon: '🔔' },
-    { id: 'theme', label: 'Display & Theme', icon: '🎨' },
-    { id: 'internet', label: 'Internet & Connection', icon: '🌐' },
-    { id: 'security', label: 'Security', icon: '🛡️' },
+    { id: 'about', label: t('SETTINGS.PROFILE', 'About Me'), icon: '👤' },
+    { id: 'notifications', label: t('SETTINGS.NOTIFICATIONS', 'Notifications'), icon: '🔔' },
+    { id: 'theme', label: t('SETTINGS.APPEARANCE', 'Display & Theme'), icon: '🎨' },
+    { id: 'language', label: t('SETTINGS.LANGUAGE_TAB', 'Language'), icon: '🌐' },
+    { id: 'internet', label: 'Internet & Connection', icon: '📡' },
+    { id: 'security', label: t('SETTINGS.SECURITY', 'Security'), icon: '🛡️' },
   ];
 
   const renderContent = () => {
@@ -293,10 +297,11 @@ const Settings = () => {
                   {scanStatus}
                   {scanProgress > 0 && scanProgress < 100 && <span style={{ display: 'block', color: '#00B4FF', fontSize: '14px', marginTop: 10 }}>{scanProgress}% Completed</span>}
                 </div>
-                
+
                 <button className="liquid-btn-secondary" onClick={closeCamera} style={{ padding: '12px 40px', fontSize: '16px', zIndex: 999999, position: 'relative' }}>ABORT SCAN</button>
               </div>
             )}
+            
             <div style={{ marginTop: 40 }}>
               <button className="liquid-btn-danger" onClick={logout} style={{ background: 'rgba(255, 59, 48, 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, letterSpacing: '1px' }}>TERMINATE SECURE SESSION / LOGOUT</button>
             </div>
@@ -305,10 +310,11 @@ const Settings = () => {
       case 'notifications':
         return (
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="setting-panel">
-            <h2 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '40px' }}>Communication Channels</h2>
-            <ToggleRow label="Real-time Alerts" desc="Immediate push notifications for threat status" active={settings.pushEnabled} onClick={() => settings.setSetting('pushEnabled', !settings.pushEnabled)} />
-            <ToggleRow label="Intelligence Digests" desc="Weekly forensic summary via secure email" active={settings.emailReports} onClick={() => settings.setSetting('emailReports', !settings.emailReports)} />
-            <ToggleRow label="Deep Sleep Protocol" desc="Silence all alerts during defined recharge hours" active={settings.silentMode} onClick={() => settings.setSetting('silentMode', !settings.silentMode)} />
+            <h2 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '40px' }}>Dispatch Comms</h2>
+            <ToggleRow label="Push Broadcasts" desc="Real-time alerts for incoming neural threats" active={settings.pushNotifications} onClick={() => settings.setSetting('pushNotifications', !settings.pushNotifications)} />
+            <ToggleRow label="Direct Intel Comms" desc="Receive direct messages from field agents" active={settings.directMessages} onClick={() => settings.setSetting('directMessages', !settings.directMessages)} />
+            <ToggleRow label="System Diagnostic Reports" desc="Weekly breakdown of security health" active={settings.systemUpdates} onClick={() => settings.setSetting('systemUpdates', !settings.systemUpdates)} />
+            <ToggleRow label="Critical Breach Alarms" desc="High-priority overrides for critical alerts" active={settings.criticalAlerts} onClick={() => settings.setSetting('criticalAlerts', !settings.criticalAlerts)} />
           </motion.div>
         );
       case 'theme':
@@ -316,18 +322,157 @@ const Settings = () => {
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="setting-panel">
             <h2 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '40px' }}>Visual Architecture</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: 40 }}>
-              {[
-                { id: 'dark', label: 'Obsidian Dark', circle: '#02060A' },
-                { id: 'light', label: 'Silk Light', circle: '#F5F5F7' },
-                { id: 'system', label: 'Core Default', circle: 'linear-gradient(135deg, #007AFF 0%, #00FFD1 100%)' }
-              ].map(t => (
-                <div key={t.id} onClick={() => setTheme(t.id)} style={{ padding: '24px', borderRadius: '24px', background: theme === t.id ? 'rgba(0,122,255,0.1)' : 'rgba(255,255,255,0.03)', border: `1px solid ${theme === t.id ? '#007AFF' : 'rgba(255,255,255,0.05)'}`, textAlign: 'center', cursor: 'pointer', transition: '0.3s' }}>
-                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: t.circle, margin: '0 auto 12px', border: '1px solid rgba(255,255,255,0.1)' }} />
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: theme === t.id ? '#fff' : 'rgba(255,255,255,0.4)' }}>{t.label}</div>
+              {['dark', 'matrix', 'cyber'].map(t => (
+                <div key={t} onClick={() => setTheme(t)} style={{
+                  padding: '24px', borderRadius: '24px', cursor: 'pointer',
+                  background: theme === t ? 'rgba(0, 122, 255, 0.15)' : 'rgba(255,255,255,0.03)',
+                  border: theme === t ? '2px solid #007AFF' : '1px solid rgba(255,255,255,0.05)',
+                  boxShadow: theme === t ? '0 10px 30px rgba(0, 122, 255, 0.3)' : 'none',
+                  transition: '0.4s'
+                }}>
+                  <div style={{ fontSize: '20px', fontWeight: 800, textTransform: 'capitalize', marginBottom: 8, color: theme === t ? '#fff' : 'rgba(255,255,255,0.6)' }}>{t}</div>
+                  <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.3)' }}>{t === 'dark' ? 'Stealth Obsidian' : t === 'matrix' ? 'Terminal Emerald' : 'Neon Cyan'}</div>
                 </div>
               ))}
             </div>
             <ToggleRow label="Atmospheric Glow" desc="Enable high-fidelity volumetric lighting effects" active={settings.accentGlow} onClick={() => settings.setSetting('accentGlow', !settings.accentGlow)} />
+          </motion.div>
+        );
+      case 'language':
+        return (
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="setting-panel">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+              <div>
+                <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 8px 0', background: 'linear-gradient(135deg, #00B4FF, #00FFD1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                  {t('SETTINGS.LANGUAGE', 'Portal Language & Localization')}
+                </h2>
+                <p style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '13px', margin: 0, lineHeight: 1.5, maxWidth: '600px' }}>
+                  {t('SETTINGS.LANGUAGE_DESC', 'Cybercrime affects citizens across diverse linguistic regions. Select your preferred Indian language to translate all portal menus, intelligence feeds, and report forms in real time.')}
+                </p>
+              </div>
+              <div style={{
+                background: 'rgba(0, 180, 255, 0.1)',
+                border: '1px solid rgba(0, 180, 255, 0.3)',
+                padding: '8px 16px',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <span style={{ fontSize: '11px', color: '#8892B0', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Current:</span>
+                <span style={{ fontSize: '13px', color: '#00FFD1', fontWeight: 800 }}>
+                  {languages.find(l => l.code === currentLanguage)?.name} ({languages.find(l => l.code === currentLanguage)?.nativeName})
+                </span>
+              </div>
+            </div>
+
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '16px',
+              marginTop: '28px'
+            }}>
+              {languages.map(lang => {
+                const isActive = currentLanguage === lang.code;
+                return (
+                  <motion.div
+                    key={lang.code}
+                    onClick={() => {
+                      setLanguage(lang.code);
+                      toast.success(`${t('SETTINGS.LANGUAGE_SAVED', 'Language updated successfully to')} ${lang.name} (${lang.nativeName})`);
+                    }}
+                    whileHover={{ scale: 1.02, y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    style={{
+                      padding: '22px 20px',
+                      borderRadius: '16px',
+                      cursor: 'pointer',
+                      background: isActive ? 'linear-gradient(135deg, rgba(0, 180, 255, 0.18), rgba(0, 255, 209, 0.08))' : 'rgba(255, 255, 255, 0.03)',
+                      border: isActive ? '2px solid #00B4FF' : '1px solid rgba(255, 255, 255, 0.08)',
+                      boxShadow: isActive ? '0 0 25px rgba(0, 180, 255, 0.3)' : 'none',
+                      transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '32px' }}>{lang.flag}</span>
+                      {isActive ? (
+                        <span style={{
+                          background: 'linear-gradient(135deg, #00B4FF, #00FFD1)',
+                          color: '#02060A',
+                          fontSize: '10px',
+                          fontWeight: 900,
+                          padding: '3px 10px',
+                          borderRadius: '20px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '1px'
+                        }}>
+                          ACTIVE
+                        </span>
+                      ) : (
+                        <span style={{
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          color: 'rgba(255, 255, 255, 0.4)',
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          padding: '3px 8px',
+                          borderRadius: '20px',
+                          textTransform: 'uppercase'
+                        }}>
+                          {lang.code.toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '18px', fontWeight: 800, color: isActive ? '#00FFD1' : '#fff', letterSpacing: '0.3px', marginBottom: '2px' }}>
+                        {lang.nativeName}
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.5)', fontWeight: 600 }}>
+                        {lang.name}
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            <div style={{
+              marginTop: '36px',
+              padding: '20px 24px',
+              background: 'rgba(255, 255, 255, 0.02)',
+              borderRadius: '16px',
+              border: '1px solid rgba(255, 255, 255, 0.06)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <span style={{ fontSize: '24px' }}>🛡️</span>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#fff' }}>
+                    Instant Real-Time Localization
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.5)' }}>
+                    Menus, cybercrime reporting forms, status trackers, and security alerts adapt instantly upon selection.
+                  </div>
+                </div>
+              </div>
+              <div style={{
+                fontSize: '11px',
+                fontWeight: 800,
+                color: '#00B4FF',
+                fontFamily: 'Orbitron, monospace',
+                letterSpacing: '1px',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                background: 'rgba(0, 180, 255, 0.1)',
+                border: '1px solid rgba(0, 180, 255, 0.3)'
+              }}>
+                PERSISTENT
+              </div>
+            </div>
           </motion.div>
         );
       case 'internet':
@@ -358,11 +503,15 @@ const Settings = () => {
       case 'security':
         return (
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="setting-panel">
-            <h2 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '40px' }}>Armor & Encryption</h2>
-            <ToggleRow label="Two-Factor Shield" desc="Dual-layer biometric verification on login" active={is2FAEnabled} onClick={handle2FAToggle} />
+            <h2 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '20px' }}>{t('SETTINGS.SECURITY', 'Armor & Encryption')}</h2>
+            
+            <ToggleRow label={t('SETTINGS.2FA', 'Two-Factor Shield')} desc={t('SETTINGS.2FA_DESC', 'Dual-layer biometric verification on login')} active={is2FAEnabled} onClick={handle2FAToggle} />
             <ToggleRow label="Instant Purge" desc="Auto-terminate sessions after inactivity" active={settings.instantPurge} onClick={handleInstantPurge} />
+            
             <div style={{ marginTop: 40 }}>
-              <button className="liquid-btn-secondary" style={{ width: '100%' }} onClick={() => setShowPasswordModal(true)}>ROTATE ENCRYPTION KEYS / CHANGE PASSWORD</button>
+              <button className="liquid-btn-secondary" style={{ width: '100%' }} onClick={() => setShowPasswordModal(true)}>
+                {t('SETTINGS.CHANGE_PASSWORD', 'ROTATE ENCRYPTION KEYS / CHANGE PASSWORD')}
+              </button>
             </div>
           </motion.div>
         );

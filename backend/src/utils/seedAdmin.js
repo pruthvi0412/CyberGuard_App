@@ -1,6 +1,11 @@
 const mongoose = require("mongoose");
+const dns = require("dns");
 const dotenv = require("dotenv");
 const User = require("../models/User");
+
+try {
+  dns.setServers(["8.8.8.8", "1.1.1.1", "8.8.4.4"]);
+} catch (_) {}
 
 dotenv.config();
 

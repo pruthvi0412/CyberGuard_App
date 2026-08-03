@@ -6,33 +6,45 @@ import useAuthStore from '../hooks/useAuthStore';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login, verify2FA, loading } = useAuthStore();
+  const { login, verify2FA, verifyEmailOtp, loading } = useAuthStore();
   const [form, setForm] = useState({ email: '', password: '' });
-  const [mfaData, setMfaData] = useState(null);
-  const [mfaToken, setMfaToken] = useState('');
+  const [otpData, setOtpData] = useState(null); // { type: 'email' | 'totp', userId: string }
+  const [otpCode, setOtpCode] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       const res = await login(form.email, form.password);
-      if (res.mfaRequired) {
-        setMfaData(res);
-        toast('2FA Required', { icon: '🛡️' });
+      if (res.emailOtpRequired) {
+        setOtpData({ type: 'email', userId: res.userId });
+        toast.success('6-digit security code sent to your email!', { icon: '📧' });
+      } else if (res.mfaRequired) {
+        setOtpData({ type: 'totp', userId: res.userId });
+        toast('Authenticator App 2FA Required', { icon: '🛡️' });
       } else {
         toast.success(`Welcome back, ${res.name}!`);
         navigate(res.role === 'admin' || res.role === 'officer' ? '/admin' : '/dashboard');
       }
-    } catch (err) { toast.error(err.message); }
+    } catch (err) { 
+      toast.error(err.message || 'Login failed'); 
+    }
   };
 
-  const handleMfaSubmit = async (e) => {
+  const handleOtpSubmit = async (e) => {
     e.preventDefault();
-    if (mfaToken.length !== 6) return toast.error('Enter 6-digit code');
+    if (otpCode.length !== 6) return toast.error('Please enter full 6-digit code');
     try {
-      const user = await verify2FA(mfaData.userId, mfaToken);
+      let user;
+      if (otpData.type === 'email') {
+        user = await verifyEmailOtp(otpData.userId, otpCode);
+      } else {
+        user = await verify2FA(otpData.userId, otpCode);
+      }
       toast.success(`Welcome back, ${user.name}!`);
       navigate(user.role === 'admin' || user.role === 'officer' ? '/admin' : '/dashboard');
-    } catch (err) { toast.error(err.message); }
+    } catch (err) { 
+      toast.error(err.message || 'Verification failed'); 
+    }
   };
 
   return (
@@ -69,7 +81,7 @@ export default function Login() {
             Cyber<span style={{ color: '#007AFF' }}>Guard</span>
           </h1>
           <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '15px', fontWeight: 500 }}>
-            {mfaData ? 'Verification Protocol Required' : 'Secure Access Gateway'}
+            {otpData ? (otpData.type === 'email' ? 'Security OTP Verification' : '2FA Protocol Required') : 'Secure Access Gateway'}
           </p>
         </div>
 
@@ -83,7 +95,7 @@ export default function Login() {
           boxShadow: '0 40px 80px rgba(0,0,0,0.6)'
         }}>
           <AnimatePresence mode="wait">
-            {!mfaData ? (
+            {!otpData ? (
               <motion.form 
                 key="login-form"
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -135,30 +147,38 @@ export default function Login() {
               </motion.form>
             ) : (
               <motion.form 
-                key="mfa-form"
+                key="otp-form"
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                onSubmit={handleMfaSubmit}
+                onSubmit={handleOtpSubmit}
               >
-                <div style={{ textAlign: 'center', marginBottom: 32 }}>
-                  <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.6)', lineHeight: 1.6 }}>
-                    Enter the 6-digit verification code from your secure authenticator app.
+                <div style={{ textAlign: 'center', marginBottom: 28 }}>
+                  <div style={{ fontSize: '28px', marginBottom: '8px' }}>
+                    {otpData.type === 'email' ? '📨' : '🛡️'}
+                  </div>
+                  <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.8)', lineHeight: 1.6, fontWeight: 600 }}>
+                    {otpData.type === 'email' 
+                      ? 'A 6-digit security code was sent to your email.' 
+                      : 'Enter the 6-digit verification code from your authenticator app.'}
+                  </p>
+                  <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>
+                    Enter the code below to complete sign-in
                   </p>
                 </div>
-                <div style={{ marginBottom: 40 }}>
+                <div style={{ marginBottom: 32 }}>
                   <input 
                     className="liquid-input" 
                     type="text" 
-                    placeholder="000 000" 
+                    placeholder="••••••" 
                     maxLength={6}
-                    value={mfaToken}
-                    onChange={e => setMfaToken(e.target.value.replace(/\D/g, ''))}
+                    value={otpCode}
+                    onChange={e => setOtpCode(e.target.value.replace(/\D/g, ''))}
                     style={{ 
                       textAlign: 'center', fontSize: '32px', letterSpacing: '12px', fontWeight: 900,
                       width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '16px', padding: '20px', color: '#fff', outline: 'none'
-                    }}
+                      borderRadius: '16px', padding: '16px', color: '#fff', outline: 'none'
+                    }} 
                     autoFocus
                   />
                 </div>
@@ -175,17 +195,17 @@ export default function Login() {
                 </button>
                 <button 
                   type="button"
-                  onClick={() => setMfaData(null)}
+                  onClick={() => { setOtpData(null); setOtpCode(''); }}
                   style={{ width: '100%', background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', 
                     fontSize: '13px', marginTop: 24, cursor: 'pointer', fontWeight: 700 }}
                 >
-                  ABORT PROTOCOL
+                  ← BACK TO LOGIN
                 </button>
               </motion.form>
             )}
           </AnimatePresence>
 
-          {!mfaData && (
+          {!otpData && (
             <div style={{ marginTop: 32 }}>
               <div style={{ 
                 padding: '16px', borderRadius: '16px', background: 'rgba(0,122,255,0.05)', 

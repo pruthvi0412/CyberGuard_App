@@ -1,11 +1,18 @@
 const mongoose = require('mongoose');
+const dns = require('dns');
 const logger = require('../utils/logger');
+
+// Set reliable DNS servers to resolve MongoDB Atlas SRV records smoothly
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
+} catch (dnsErr) {
+  // Ignore in environments where setting DNS servers is restricted
+}
 
 const connectDB = async () => {
   try {
-    // Railway usually just uses MONGODB_URI. 
-    // This line checks for the specific production string, but falls back to your main URI.
-    const uri = process.env.MONGODB_URI_PROD || process.env.MONGODB_URI;
+    // Priority: MONGODB_URI -> MONGODB_URI_PROD
+    const uri = process.env.MONGODB_URI || process.env.MONGODB_URI_PROD;
 
     if (!uri) {
       throw new Error("MONGODB_URI is not defined in environment variables");
@@ -13,7 +20,7 @@ const connectDB = async () => {
 
     const conn = await mongoose.connect(uri, {
       maxPoolSize: 10,
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 30000,
       socketTimeoutMS: 45000,
     });
 
@@ -45,20 +52,16 @@ const connectDB = async () => {
 };
 
 const seedAdmin = async () => {
-  // Use a relative path to ensure models are found correctly in Railway's file system
   const User = require('../models/User');
-  const bcrypt = require('bcryptjs');
 
   const adminExists = await User.findOne({ role: 'admin' });
   
   if (!adminExists) {
     logger.info('Seeding admin user...');
-    const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'Admin@123456', 12);
-    
     await User.create({
       name: 'System Administrator',
       email: process.env.ADMIN_EMAIL || 'admin@cybercrime.gov',
-      password: hashedPassword,
+      password: process.env.ADMIN_PASSWORD || 'Admin@123456',
       role: 'admin',
       isVerified: true,
       phone: '0000000000',

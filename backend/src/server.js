@@ -38,7 +38,7 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin: true, // Allow all origins for mobile/tunnel development
-  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Bypass-Tunnel-Reminder'],
   credentials: true
 };
@@ -48,7 +48,7 @@ app.options('*', cors(corsOptions)); // Required for Preflight requests
 
 const io = socketIo(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: '*',
     methods: ['GET', 'POST'],
     credentials: true
   }
@@ -157,6 +157,17 @@ io.on('connection', (socket) => {
 // START SERVER
 // ─────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5002;
+
+server.on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`\n⚠️  PORT ${PORT} IS ALREADY IN USE!`);
+    console.error(`👉 Another instance of the backend is already running on port ${PORT}.`);
+    console.error(`👉 To free the port on macOS, run: kill -9 $(lsof -ti:${PORT})\n`);
+  } else {
+    console.error(`❌ Server Error: ${error.message}`);
+  }
+  process.exit(1);
+});
 
 const startServer = async () => {
   try {

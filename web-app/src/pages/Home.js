@@ -1,8 +1,9 @@
-import React, { useRef, useCallback, useEffect } from 'react';
+import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import ChatBot from '../components/ChatBot';
 import VoiceAssistant from '../components/VoiceAssistant';
+import useTranslationStore from '../hooks/useTranslationStore';
 
 /* ═══════════════════════════════════════════════════════════════
    STARFIELD — cursor-reactive stars + cyber glyphs
@@ -279,6 +280,8 @@ function StarField({ mouseRef }) {
 export default function Home() {
   const navigate = useNavigate();
   const mouseRef = useRef([0, 0]);
+  const [showHelpMenu, setShowHelpMenu] = useState(false);
+  const { t } = useTranslationStore();
 
   const handleMouseMove = useCallback((e) => {
     mouseRef.current = [
@@ -288,11 +291,12 @@ export default function Home() {
   }, []);
 
   const navLinks = [
-    { name: 'HOME',      path: '/' },
-    { name: 'REPORT',    path: '/submit' },
-    { name: 'TRACK',     path: '/track' },
-    { name: 'DASHBOARD', path: '/dashboard' },
-    { name: 'ADMIN',     path: '/admin' },
+    { name: t('NAVBAR.HOME', 'HOME'),           path: '/' },
+    { name: t('NAVBAR.REPORT', 'REPORT'),       path: '/submit' },
+    { name: t('NAVBAR.TRACK', 'TRACK'),         path: '/track' },
+    { name: t('NAVBAR.DASHBOARD', 'DASHBOARD'), path: '/dashboard' },
+    { name: t('NAVBAR.LEARN', 'LEARN'),         path: '/learn' },
+    { name: t('NAVBAR.ADMIN', 'ADMIN'),         path: '/admin' },
   ];
 
   return (
@@ -332,7 +336,7 @@ export default function Home() {
             style={{ cursor: 'pointer', fontWeight: 900, fontSize: '20px', letterSpacing: '4px', color: '#fff', fontFamily: 'Orbitron, monospace', textShadow: '0 0 20px rgba(255,255,255,0.4)' }}
           >CYBERGUARD</div>
         </div>
-        <nav style={{ flex: 2, display: 'flex', justifyContent: 'center', gap: 40 }}>
+        <nav style={{ flex: 2, display: 'flex', justifyContent: 'center', gap: 40, position: 'relative' }}>
           {navLinks.map(l => (
             <span key={l.name}
               onClick={() => navigate(l.path)}
@@ -341,15 +345,77 @@ export default function Home() {
               style={{ cursor: 'pointer', fontSize: '11px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', letterSpacing: '2px', transition: 'color 0.3s' }}
             >{l.name}</span>
           ))}
+
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <span
+              onClick={() => setShowHelpMenu(!showHelpMenu)}
+              onMouseEnter={e => e.target.style.color = '#fff'}
+              onMouseLeave={e => e.target.style.color = 'rgba(255,255,255,0.4)'}
+              style={{ cursor: 'pointer', fontSize: '11px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', letterSpacing: '2px', transition: 'color 0.3s' }}
+            >
+              HELP & FAQ
+            </span>
+
+            {showHelpMenu && (
+              <div style={{
+                position: 'absolute',
+                top: '30px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: 'rgba(20,20,20,0.95)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '12px',
+                padding: '10px 0',
+                display: 'flex',
+                flexDirection: 'column',
+                minWidth: '150px',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                zIndex: 200
+              }}>
+                {['Contact Us', 'Feedback', 'FAQ'].map((item) => (
+                  <div
+                    key={item}
+                    onClick={() => {
+                      setShowHelpMenu(false);
+                      if (item === 'Contact Us') window.open('/contactlist.pdf', '_blank');
+                      else if (item === 'Feedback') navigate('/feedback');
+                      else if (item === 'FAQ') navigate('/faq');
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.background = 'rgba(255,255,255,0.1)';
+                      e.target.style.color = '#00B4FF';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.background = 'transparent';
+                      e.target.style.color = '#fff';
+                    }}
+                    style={{
+                      padding: '10px 20px',
+                      color: '#fff',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      letterSpacing: '1px',
+                      transition: 'all 0.2s',
+                      textAlign: 'center'
+                    }}
+                  >
+                    {item}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </nav>
         <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
           <button onClick={() => navigate('/login')}
             style={{ padding: '10px 20px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '16px', fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>
-            SIGN IN
+            {t('NAVBAR.LOGIN', 'SIGN IN')}
           </button>
           <button onClick={() => navigate('/register-choice')}
             style={{ padding: '10px 20px', background: '#007AFF', border: 'none', color: '#fff', borderRadius: '16px', fontSize: '11px', fontWeight: 800, cursor: 'pointer', boxShadow: '0 8px 16px rgba(0,122,255,0.3)' }}>
-            JOIN
+            {t('NAVBAR.JOIN', 'JOIN')}
           </button>
         </div>
       </header>
@@ -467,7 +533,7 @@ export default function Home() {
                   textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'
                 }}
               >
-                REPORT INCIDENT
+                {t('NAVBAR.REPORT', 'REPORT INCIDENT')}
               </motion.button>
             </motion.div>
 

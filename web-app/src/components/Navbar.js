@@ -1,8 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { motion, useMotionValue, useSpring, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import useAuthStore from '../hooks/useAuthStore';
+import useTranslationStore from '../hooks/useTranslationStore';
+import { getAvatarUrl } from '../utils/avatar';
 import NotificationCenter from './NotificationCenter';
 import DeveloperAccessScanner from './DeveloperAccessScanner';
 
@@ -10,8 +13,20 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout, isAdmin, isOfficer } = useAuthStore();
+  const { t } = useTranslationStore();
   const containerRef = useRef(null);
+  const helpBtnRef = useRef(null);
   const [showScanner, setShowScanner] = useState(false);
+  const [showHelpMenu, setShowHelpMenu] = useState(false);
+  const [helpMenuPos, setHelpMenuPos] = useState({ top: 0, left: 0 });
+
+  const toggleHelpMenu = () => {
+    if (!showHelpMenu && helpBtnRef.current) {
+      const rect = helpBtnRef.current.getBoundingClientRect();
+      setHelpMenuPos({ top: rect.bottom + 10, left: rect.left + rect.width / 2 });
+    }
+    setShowHelpMenu(!showHelpMenu);
+  };
 
   const scroll = (direction) => {
     if (containerRef.current) {
@@ -104,10 +119,11 @@ export default function Navbar() {
             cursor: 'pointer'
           }}
         >
-          {user?.avatar ? (
+          {getAvatarUrl(user?.avatar, user?.updatedAt) ? (
             <img 
-              src={user.avatar.startsWith('http') ? user.avatar : `http://localhost:5002${user.avatar}`} 
-              alt="" 
+              src={getAvatarUrl(user?.avatar, user?.updatedAt)} 
+              alt={user?.name || 'User'} 
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
               style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
             />
           ) : (
@@ -129,13 +145,14 @@ export default function Navbar() {
         flex: 1, 
         display: 'flex', 
         alignItems: 'center', 
-        margin: '0 40px', 
+        margin: '0 20px', 
         position: 'relative',
         background: 'rgba(255,255,255,0.02)',
         borderRadius: '12px',
         padding: '6px',
         border: '1px solid rgba(255,255,255,0.05)',
-        maxWidth: 'calc(100% - 400px)'
+        minWidth: 0,
+        overflow: 'hidden'
       }}>
         {/* Left Arrow */}
         <motion.button 
@@ -146,7 +163,7 @@ export default function Navbar() {
             background: 'rgba(3,10,15,0.8)', border: '1px solid rgba(0,180,255,0.3)',
             borderRadius: '8px', width: 32, height: 48, color: '#00B4FF', 
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 10, position: 'absolute', left: -16, fontSize: 18, boxShadow: '0 0 20px rgba(0,0,0,0.5)'
+            zIndex: 10, position: 'absolute', left: 0, fontSize: 18, boxShadow: '0 0 20px rgba(0,0,0,0.5)'
           }}
         >
           ❮
@@ -163,41 +180,137 @@ export default function Navbar() {
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
             scrollBehavior: 'smooth',
-            padding: '0 20px',
+            padding: '0 36px',
             gap: 12
           }}
         >
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', width: 'max-content' }}>
-            {navLink('/dashboard', 'COMPLAINTS', 'CORE')}
-            {navLink('/submit', 'REPORT', 'CORE')}
+            {navLink('/dashboard', t('NAVBAR.COMPLAINTS', 'COMPLAINTS'), t('NAVBAR.CORE', 'CORE'))}
+            {navLink('/submit', t('NAVBAR.REPORT', 'REPORT'), t('NAVBAR.CORE', 'CORE'))}
             
             <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.1)', margin: '0 10px' }} />
             
-            {navLink('/scam-search', 'SCAM SEARCH', 'INTEL')}
-            {navLink('/forensic-scanner', 'NEURAL SCAN', 'INTEL')}
-            {navLink('/leak-monitor', 'LEAK MONITOR', 'INTEL')}
-            {navLink('/threat-map', 'HOTSPOTS', 'INTEL')}
+            {navLink('/scam-search', t('NAVBAR.SCAM_SEARCH', 'SCAM SEARCH'), t('NAVBAR.INTEL', 'INTEL'))}
+            {navLink('/suspect-search', t('NAVBAR.SUSPECT_SEARCH', 'SUSPECT SEARCH'), t('NAVBAR.INTEL', 'INTEL'))}
+            {navLink('/leak-monitor', t('NAVBAR.LEAK_MONITOR', 'LEAK MONITOR'), t('NAVBAR.INTEL', 'INTEL'))}
+            {navLink('/threat-map', t('NAVBAR.HOTSPOTS', 'HOTSPOTS'), t('NAVBAR.INTEL', 'INTEL'))}
 
             <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.1)', margin: '0 10px' }} />
 
             {isOfficer() && (
               <>
-                {navLink('/admin', 'COMMAND CENTER', 'OFFICER')}
-                {navLink('/admin/database', 'DATABASE', 'OFFICER')}
-                {navLink('/admin/link-analysis', 'FORENSICS', 'OFFICER')}
-                {navLink('/admin/map', 'MAP', 'OFFICER')}
+                {navLink('/admin', t('NAVBAR.COMMAND_CENTER', 'COMMAND CENTER'), t('NAVBAR.OFFICER', 'OFFICER'))}
+                {isAdmin() && navLink('/admin/info', t('NAVBAR.INFO', 'INFO'), t('NAVBAR.ADMIN', 'ADMIN'))}
+                {navLink('/admin/safety', t('NAVBAR.SAFETY', 'SAFETY'), t('NAVBAR.OFFICER', 'OFFICER'))}
+                {navLink('/admin/database', t('NAVBAR.DATABASE', 'DATABASE'), t('NAVBAR.OFFICER', 'OFFICER'))}
+                {navLink('/admin/link-analysis', t('NAVBAR.FORENSICS', 'FORENSICS'), t('NAVBAR.OFFICER', 'OFFICER'))}
+                {navLink('/admin/map', t('NAVBAR.MAP', 'MAP'), t('NAVBAR.OFFICER', 'OFFICER'))}
               </>
             )}
 
-            {navLink('/chat', 'COMMS', 'NETWORK')}
-            {isAdmin() && navLink('/admin/mails', 'MAIL', 'NETWORK')}
+            {navLink('/chat', t('NAVBAR.COMMS', 'COMMS'), t('NAVBAR.NETWORK', 'NETWORK'))}
+            {isAdmin() && navLink('/admin/mails', t('NAVBAR.MAIL', 'MAIL'), t('NAVBAR.NETWORK', 'NETWORK'))}
+            {navLink('/learn', t('NAVBAR.LEARN', 'LEARN'), t('NAVBAR.AWARENESS', 'AWARENESS'))}
 
-            {isAdmin() && (
-              <>
-                <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.1)', margin: '0 10px' }} />
-                {navLink('/admin/users', 'ACCOUNTS', 'SYSTEM')}
-              </>
-            )}
+            <div
+              ref={helpBtnRef}
+              onClick={toggleHelpMenu}
+              style={{
+                color: showHelpMenu ? '#00B4FF' : '#8892B0',
+                textDecoration: 'none', 
+                fontSize: 11, 
+                fontWeight: 700,
+                fontFamily: 'Orbitron, monospace',
+                letterSpacing: '1px',
+                whiteSpace: 'nowrap',
+                padding: '10px 20px',
+                borderRadius: '8px',
+                background: showHelpMenu ? 'rgba(0,180,255,0.1)' : 'rgba(255,255,255,0.03)',
+                border: showHelpMenu ? '1px solid rgba(0,180,255,0.4)' : '1px solid rgba(255,255,255,0.05)',
+                transition: '0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '4px',
+                minWidth: 'fit-content',
+                cursor: 'pointer'
+              }}
+            >
+              <span style={{ fontSize: '8px', opacity: 0.6, color: '#00B4FF', textTransform: 'uppercase' }}>SUPPORT</span>
+              HELP & FAQ
+            </div>
+
+            {showHelpMenu && createPortal(
+                <div style={{
+                  position: 'fixed',
+                  top: helpMenuPos.top + 'px',
+                  left: helpMenuPos.left + 'px',
+                  transform: 'translateX(-50%)',
+                  background: 'rgba(3, 10, 15, 0.98)',
+                  backdropFilter: 'blur(40px)',
+                  border: '1px solid rgba(0, 180, 255, 0.25)',
+                  borderRadius: '12px',
+                  padding: '10px 0',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  minWidth: '150px',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                  zIndex: 99999
+                }}>
+                  <div
+                    onClick={() => {
+                      setShowHelpMenu(false);
+                      window.open('/contactlist.pdf', '_blank');
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.background = 'rgba(0,180,255,0.1)';
+                      e.target.style.color = '#00B4FF';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.background = 'transparent';
+                      e.target.style.color = '#fff';
+                    }}
+                    style={{ padding: '10px 20px', color: '#fff', fontSize: '11px', fontWeight: 700, cursor: 'pointer', letterSpacing: '1px', transition: 'all 0.2s', textAlign: 'center', fontFamily: 'Orbitron, monospace' }}
+                  >
+                    Contact Us
+                  </div>
+                  <div
+                    onClick={() => {
+                      setShowHelpMenu(false);
+                      navigate('/feedback');
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.background = 'rgba(0,180,255,0.1)';
+                      e.target.style.color = '#00B4FF';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.background = 'transparent';
+                      e.target.style.color = '#fff';
+                    }}
+                    style={{ padding: '10px 20px', color: '#fff', fontSize: '11px', fontWeight: 700, cursor: 'pointer', letterSpacing: '1px', transition: 'all 0.2s', textAlign: 'center', fontFamily: 'Orbitron, monospace' }}
+                  >
+                    Feedback
+                  </div>
+                  <div
+                    onClick={() => {
+                      setShowHelpMenu(false);
+                      navigate('/faq');
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.background = 'rgba(0,180,255,0.1)';
+                      e.target.style.color = '#00B4FF';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.background = 'transparent';
+                      e.target.style.color = '#fff';
+                    }}
+                    style={{ padding: '10px 20px', color: '#fff', fontSize: '11px', fontWeight: 700, cursor: 'pointer', letterSpacing: '1px', transition: 'all 0.2s', textAlign: 'center', fontFamily: 'Orbitron, monospace' }}
+                  >
+                    FAQ
+                  </div>
+                </div>,
+                document.body
+              )}
           </div>
         </div>
 
@@ -210,16 +323,15 @@ export default function Navbar() {
             background: 'rgba(3,10,15,0.8)', border: '1px solid rgba(0,180,255,0.3)',
             borderRadius: '8px', width: 32, height: 48, color: '#00B4FF', 
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 10, position: 'absolute', right: -16, fontSize: 18, boxShadow: '0 0 20px rgba(0,0,0,0.5)'
+            zIndex: 10, position: 'absolute', right: 0, fontSize: 18, boxShadow: '0 0 20px rgba(0,0,0,0.5)'
           }}
         >
           ❯
         </motion.button>
       </div>
 
-      {/* User Actions */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexShrink: 0 }}>
-        
+      {/* Right Controls Dock */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0, marginLeft: 'auto' }}>
         <motion.div 
           whileHover={{ rotate: 90, scale: 1.1, color: '#00B4FF' }}
           onClick={() => navigate('/settings')}
@@ -228,6 +340,7 @@ export default function Navbar() {
             background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center',
             border: '1px solid rgba(255,255,255,0.05)', transition: '0.3s'
           }}
+          title="Settings"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
@@ -235,28 +348,6 @@ export default function Navbar() {
         </motion.div>
 
         <NotificationCenter />
-        
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '20px' }}>
-          <div 
-            onClick={() => navigate('/settings')}
-            style={{ 
-              width: 42, height: 42, borderRadius: '50%', 
-              border: '2px solid #00B4FF',
-              padding: '2px',
-              overflow: 'hidden', cursor: 'pointer',
-              background: 'rgba(0,180,255,0.1)',
-              boxShadow: '0 0 10px rgba(0,180,255,0.2)'
-            }}
-          >
-            {user?.avatar ? (
-              <img src={user.avatar.startsWith('http') ? user.avatar : `http://localhost:5002${user.avatar}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-            ) : (
-              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#00B4FF', fontSize: 18, fontWeight: 'bold' }}>
-                {user?.name?.[0]}
-              </div>
-            )}
-          </div>
-        </div>
 
         <button onClick={handleLogout} 
           style={{ 
@@ -270,7 +361,8 @@ export default function Navbar() {
             cursor: 'pointer',
             fontFamily: 'Orbitron, monospace',
             transition: '0.3s',
-            letterSpacing: '1px'
+            letterSpacing: '1px',
+            whiteSpace: 'nowrap'
           }}
           onMouseOver={(e) => {
             e.target.style.background = 'rgba(255,82,82,0.2)';
@@ -283,7 +375,7 @@ export default function Navbar() {
             e.target.style.boxShadow = 'none';
           }}
         >
-          DISCONNECT
+          {t('NAVBAR.LOGOUT', 'DISCONNECT')}
         </button>
       </div>
 

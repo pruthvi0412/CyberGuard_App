@@ -7,7 +7,7 @@ import useAuthStore from '../hooks/useAuthStore';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 
-const SOCKET_URL = process.env.REACT_APP_API_URL || 'http://localhost:5002';
+const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || (process.env.REACT_APP_API_URL ? process.env.REACT_APP_API_URL.replace(/\/api\/?$/, '') : 'http://localhost:5002');
 
 export default function SecureChat({ complaintId }) {
   const { user } = useAuthStore();

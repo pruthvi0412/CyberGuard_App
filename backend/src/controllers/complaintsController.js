@@ -9,6 +9,7 @@ const fs = require('fs');
 const ocrService = require('../services/ocrService');
 const emailAgentService = require('../services/emailAgentService');
 const smsService = require('../services/smsService');
+const threatIntelligence = require('../utils/threatIntelligence');
 
 // Multer config for file uploads
 const storage = multer.diskStorage({
@@ -44,10 +45,26 @@ exports.createComplaint = async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ status: 'fail', errors: errors.array() });
+      const errorMsg = errors.array().map(e => e.msg).join('. ');
+      return res.status(400).json({ status: 'fail', message: errorMsg, errors: errors.array() });
     }
 
-    const { title, description, victimDetails, suspectInfo, location, isAnonymous } = req.body;
+    const {
+      title,
+      description,
+      victimDetails,
+      suspectInfo,
+      location,
+      isAnonymous,
+      category: userCategory,
+      subCategory,
+      modusOperandi,
+      lostMoney,
+      relationshipWithVictim,
+      severity: userSeverity,
+      priority: userPriority,
+      isImmediateAction: userImmediateAction
+    } = req.body;
 
     // Call ML service for classification
     let mlPrediction = null;
@@ -89,28 +106,59 @@ exports.createComplaint = async (req, res, next) => {
     }));
 
     // Parse nested fields if sent as strings (mobile/form-data)
-    const parsedVictimDetails = typeof victimDetails === 'string' ? JSON.parse(victimDetails) : victimDetails;
-    const parsedSuspectInfo = typeof suspectInfo === 'string' ? JSON.parse(suspectInfo) : suspectInfo;
-    const parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
+    let parsedVictimDetails = {};
+    if (typeof victimDetails === 'string') {
+      try { parsedVictimDetails = JSON.parse(victimDetails); } catch (_) { parsedVictimDetails = {}; }
+    } else if (victimDetails && typeof victimDetails === 'object') {
+      parsedVictimDetails = victimDetails;
+    }
+    if (!parsedVictimDetails.incidentDate) {
+      parsedVictimDetails.incidentDate = new Date();
+    }
 
-    // Determine severity based on category rules or ML confidence
-    let severity = 'low';
-    if (['financial_fraud', 'hacking', 'ransomware', 'child_exploitation'].includes(mlPrediction?.category)) {
+    let parsedSuspectInfo = {};
+    if (typeof suspectInfo === 'string') {
+      try { parsedSuspectInfo = JSON.parse(suspectInfo); } catch (_) { parsedSuspectInfo = {}; }
+    } else if (suspectInfo && typeof suspectInfo === 'object') {
+      parsedSuspectInfo = suspectInfo;
+    }
+
+    let parsedLocation = null;
+    if (typeof location === 'string') {
+      try { parsedLocation = JSON.parse(location); } catch (_) { parsedLocation = null; }
+    } else if (location && typeof location === 'object') {
+      parsedLocation = location;
+    }
+
+    // Determine category & priority rules
+    const isSafetyCategory = /women|child|domestic|harass|safety|emergency/i.test(userCategory || '');
+    const isImmediateAction = userImmediateAction === true || userImmediateAction === 'true' || isSafetyCategory;
+    const priority = isImmediateAction ? 'top_priority' : (userPriority || 'standard');
+
+    let severity = userSeverity || 'low';
+    if (isImmediateAction || ['financial_fraud', 'hacking', 'ransomware', 'child_exploitation'].includes(mlPrediction?.category)) {
       severity = 'high';
     } else if (mlPrediction?.category === 'phishing') {
       severity = 'low';
-    } else {
-      severity = mlPrediction?.confidence > 0.8 ? 'high'
-        : mlPrediction?.confidence > 0.6 ? 'medium' : 'low';
+    } else if (mlPrediction?.confidence > 0.8) {
+      severity = 'high';
+    } else if (mlPrediction?.confidence > 0.6) {
+      severity = 'medium';
     }
 
     const complaint = await Complaint.create({
       userId: req.user._id,
       title,
       description,
-      category: mlPrediction?.category || 'other',
+      category: userCategory || mlPrediction?.category || 'Other',
+      subCategory,
+      modusOperandi,
+      lostMoney: lostMoney === 'true' || lostMoney === true,
+      relationshipWithVictim,
       mlPrediction,
       severity,
+      priority,
+      isImmediateAction,
       victimDetails: parsedVictimDetails,
       suspectInfo: parsedSuspectInfo,
       location: parsedLocation,
@@ -119,7 +167,9 @@ exports.createComplaint = async (req, res, next) => {
       source: req.body.source || 'web',
       timeline: [{
         status: 'pending',
-        message: 'Complaint submitted successfully. Under review.',
+        message: isImmediateAction
+          ? '🚨 EMERGENCY PROTOCOL ACTIVATED: High priority Women & Child Safety incident logged for immediate tactical response.'
+          : 'Complaint submitted successfully. Under review.',
         timestamp: new Date(),
       }],
     });
@@ -132,6 +182,8 @@ exports.createComplaint = async (req, res, next) => {
       complaintId: complaint.complaintId,
       category: complaint.category,
       severity: complaint.severity,
+      priority: complaint.priority,
+      isImmediateAction: complaint.isImmediateAction,
       title: complaint.title,
     });
     io.to(`user-${req.user._id}`).emit('complaint-submitted', {
@@ -192,14 +244,32 @@ async function processOCR(complaintId, files) {
     allExtracted.accounts = [...new Set(allExtracted.accounts)];
     
     if (allRawText.trim()) {
-      await Complaint.findByIdAndUpdate(complaintId, {
+      const updateData = {
         ocrData: {
           rawText: allRawText.trim(),
           extracted: allExtracted,
           analyzedAt: new Date()
         }
-      });
-      logger.info(`OCR completed for complaint ${complaintId}`);
+      };
+
+      try {
+        // Classify cybercrime type directly from OCR extracted text
+        const ocrPrediction = await mlService.predict(allRawText.trim());
+        if (ocrPrediction && ocrPrediction.category && ocrPrediction.category !== 'Other') {
+          const currentComplaint = await Complaint.findById(complaintId);
+          if (currentComplaint && (!currentComplaint.category || currentComplaint.category === 'Other' || currentComplaint.aiConfidence < 0.7)) {
+            updateData.category = ocrPrediction.category;
+            updateData.subcategory = ocrPrediction.subcategory;
+            updateData.aiConfidence = ocrPrediction.confidence;
+            if (ocrPrediction.severity) updateData.severity = ocrPrediction.severity;
+          }
+        }
+      } catch (classifyErr) {
+        logger.warn(`OCR AI post-classification skipped: ${classifyErr.message}`);
+      }
+
+      await Complaint.findByIdAndUpdate(complaintId, updateData);
+      logger.info(`OCR and evidence analysis completed for complaint ${complaintId}`);
     }
   } catch (err) {
     logger.error(`OCR Background process failed for ${complaintId}: ${err.message}`);
@@ -224,8 +294,23 @@ exports.getComplaints = async (req, res, next) => {
 
     // Filters
     if (status) query.status = status;
-    if (category) query.category = category;
+    if (category) {
+      if (category.toLowerCase() === 'safety') {
+        query.$or = [
+          { category: { $in: ['Women/Child Safety', 'Domestic Violence', 'Child Exploitation', 'Harassment', 'Emergency Safety'] } },
+          { isImmediateAction: true }
+        ];
+      } else if (category.includes(',')) {
+        query.category = { $in: category.split(',').map(c => c.trim()) };
+      } else {
+        query.category = category;
+      }
+    }
     if (severity) query.severity = severity;
+    if (req.query.priority) query.priority = req.query.priority;
+    if (req.query.isImmediateAction !== undefined) {
+      query.isImmediateAction = req.query.isImmediateAction === 'true';
+    }
     if (search) query.$text = { $search: search };
     if (startDate || endDate) {
       query.createdAt = {};
@@ -368,25 +453,65 @@ exports.updateStatus = async (req, res, next) => {
 exports.publicSearch = async (req, res, next) => {
   try {
     const { q } = req.query;
-    if (!q || q.length < 5) {
-      return res.status(400).json({ status: 'fail', message: 'Search query must be at least 5 characters.' });
+    if (!q || q.trim().length < 2) {
+      return res.status(400).json({ status: 'fail', message: 'Search query must be at least 2 characters.' });
     }
 
-    // Search in suspectInfo details and ocrData extracted fields
-    const results = await Complaint.find({
-      $or: [
-        { 'suspectInfo.details': { $regex: q, $options: 'i' } },
-        { 'ocrData.extracted.phones': q },
-        { 'ocrData.extracted.upis': q },
-        { 'ocrData.extracted.accounts': q },
-      ]
-    }).select('complaintId category severity status createdAt').limit(20);
+    const trimmed = q.trim();
+
+    // 1. Search Threat Intelligence Repository (Curated Scam numbers, Phishing URLs, VoIP)
+    const threatMatches = threatIntelligence.lookupThreat(trimmed);
+
+    // 2. Search MongoDB Complaint database
+    let dbResults = [];
+    try {
+      dbResults = await Complaint.find({
+        $or: [
+          { 'suspectInfo.details': { $regex: trimmed, $options: 'i' } },
+          { 'suspectInfo.name': { $regex: trimmed, $options: 'i' } },
+          { 'suspectInfo.phone': { $regex: trimmed, $options: 'i' } },
+          { 'suspectInfo.email': { $regex: trimmed, $options: 'i' } },
+          { 'suspectInfo.upiId': { $regex: trimmed, $options: 'i' } },
+          { 'suspectInfo.bankAccount': { $regex: trimmed, $options: 'i' } },
+          { 'suspectInfo.socialMediaHandle': { $regex: trimmed, $options: 'i' } },
+          { 'suspectInfo.websiteUrl': { $regex: trimmed, $options: 'i' } },
+          { 'description': { $regex: trimmed, $options: 'i' } },
+          { 'ocrData.extracted.phones': { $regex: trimmed, $options: 'i' } },
+          { 'ocrData.extracted.upis': { $regex: trimmed, $options: 'i' } },
+          { 'ocrData.extracted.accounts': { $regex: trimmed, $options: 'i' } },
+        ]
+      }).select('complaintId category severity status createdAt suspectInfo description').limit(20).lean();
+    } catch (dbErr) {
+      logger.warn('DB search warning: ' + dbErr.message);
+    }
+
+    // Combine results (avoiding duplicates by complaintId)
+    const combined = [...threatMatches];
+    const existingIds = new Set(threatMatches.map(m => m.complaintId));
+
+    for (const r of dbResults) {
+      if (!existingIds.has(r.complaintId)) {
+        combined.push({
+          complaintId: r.complaintId,
+          category: r.category || 'Cybercrime Complaint',
+          severity: r.severity || 'medium',
+          riskLevel: r.severity === 'high' ? 'critical' : 'high',
+          identifier: r.suspectInfo?.phone || r.suspectInfo?.websiteUrl || r.suspectInfo?.upiId || trimmed,
+          type: r.suspectInfo?.phone ? 'PHONE' : (r.suspectInfo?.websiteUrl ? 'WEBSITE' : 'CREDENTIAL'),
+          details: r.description ? r.description.slice(0, 120) + '...' : 'Citizen report on active cybercrime registry.',
+          status: r.status || 'UNDER INVESTIGATION',
+          createdAt: r.createdAt || new Date().toISOString()
+        });
+        existingIds.add(r.complaintId);
+      }
+    }
 
     res.json({
       status: 'success',
       data: {
-        count: results.length,
-        results: results
+        isScam: combined.length > 0,
+        count: combined.length,
+        results: combined
       }
     });
   } catch (error) {

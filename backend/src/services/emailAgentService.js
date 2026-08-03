@@ -48,6 +48,7 @@ exports.sendStateChangeEmail = async (user, complaint, oldStatus, newStatus, mes
   try {
     let emailSubject = `Update on your Cybercrime Complaint: ${complaint.complaintId} - Status: ${newStatus.toUpperCase()}`;
     let emailBody = '';
+    let textMessage = `Cybercrime Dept: Your complaint (ID: ${complaint.complaintId}) status has been updated to "${newStatus.toUpperCase()}".${message ? ` Notes: ${message}` : ''}`;
 
     const prompt = `
       You are an official Cybercrime Department AI Assistant.
@@ -71,8 +72,10 @@ exports.sendStateChangeEmail = async (user, complaint, oldStatus, newStatus, mes
 
     await MailLog.create({
       recipient: user.email,
+      recipientPhone: user.phone || '',
       subject: emailSubject,
       body: emailBody,
+      textMessage: textMessage,
       complaintId: complaint.complaintId
     });
 
@@ -101,6 +104,7 @@ exports.sendViewedEmail = async (user, complaint, viewerRole) => {
   try {
     let emailSubject = `Your Cybercrime Complaint (${complaint.complaintId}) is being reviewed`;
     let emailBody = '';
+    let textMessage = `Cybercrime Dept: Your complaint #${complaint.complaintId} (${complaint.category}) is now under active review by an assigned ${viewerRole}.`;
 
     const prompt = `
       You are an official Cybercrime Department AI Assistant.
@@ -122,8 +126,10 @@ exports.sendViewedEmail = async (user, complaint, viewerRole) => {
 
     await MailLog.create({
       recipient: user.email,
+      recipientPhone: user.phone || '',
       subject: emailSubject,
       body: emailBody,
+      textMessage: textMessage,
       complaintId: complaint.complaintId
     });
 
@@ -152,6 +158,7 @@ exports.sendNewComplaintAlert = async (adminsAndOfficers, complaint, user) => {
   try {
     let emailSubject = `[URGENT] New ${complaint.severity.toUpperCase()} Severity Cybercrime Complaint Filed`;
     let emailBody = '';
+    let textMessage = `[URGENT] New ${complaint.severity.toUpperCase()} complaint #${complaint.complaintId} (${complaint.category}) filed by ${user.name}. Review immediately on CyberGuard.`;
 
     const prompt = `
       You are the Cybercrime System Dispatcher.
@@ -175,8 +182,10 @@ exports.sendNewComplaintAlert = async (adminsAndOfficers, complaint, user) => {
     const emailPromises = adminsAndOfficers.map(async (admin) => {
       await MailLog.create({
         recipient: admin.email,
+        recipientPhone: admin.phone || '',
         subject: emailSubject,
         body: emailBody,
+        textMessage: textMessage,
         complaintId: complaint.complaintId
       });
 
@@ -206,6 +215,7 @@ exports.sendLoginOtpEmail = async (user, otp) => {
   try {
     let emailSubject = `Your CyberGuard Login OTP: ${otp}`;
     let emailBody = '';
+    let textMessage = `CyberGuard Security: Your login OTP is ${otp}. Valid for 10 mins. Do not share this code with anyone.`;
 
     const prompt = `
       You are the Cybercrime System Authenticator.
@@ -226,8 +236,10 @@ exports.sendLoginOtpEmail = async (user, otp) => {
 
     await MailLog.create({
       recipient: user.email,
+      recipientPhone: user.phone || '',
       subject: emailSubject,
       body: emailBody,
+      textMessage: textMessage,
     });
 
     if (process.env.SMTP_USER && process.env.SMTP_PASS) {

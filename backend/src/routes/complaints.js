@@ -6,9 +6,9 @@ const { protect, restrictTo } = require('../middleware/auth');
 const { parseNestedFields } = require('../middleware/parseBody');
 
 const complaintValidation = [
-  body('title').trim().isLength({ min: 10, max: 200 }).withMessage('Title must be 10-200 characters'),
-  body('description').trim().isLength({ min: 50, max: 5000 }).withMessage('Description must be 50-5000 characters'),
-  body('victimDetails.incidentDate').isISO8601().withMessage('Valid incident date required'),
+  body('title').trim().isLength({ min: 2, max: 300 }).withMessage('Title must be at least 2 characters'),
+  body('description').trim().isLength({ min: 3, max: 5000 }).withMessage('Description must be at least 3 characters'),
+  body('victimDetails.incidentDate').optional({ checkFalsy: true }).isISO8601().withMessage('Valid incident date required if provided'),
 ];
 
 // Public routes

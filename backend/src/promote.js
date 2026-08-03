@@ -1,6 +1,12 @@
 const mongoose = require('mongoose');
+const dns = require('dns');
 const path = require('path');
 const User = require('./models/User');
+
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
+} catch (_) {}
+
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const promoteUser = async (email) => {

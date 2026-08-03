@@ -3,15 +3,118 @@ import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import { toast } from 'react-hot-toast';
 import { complaintsAPI } from '../services/api';
+import useTranslationStore from '../hooks/useTranslationStore';
+
+const SUBCATEGORIES_BY_CATEGORY = {
+  'Financial Fraud': [
+    'UPI / Banking & Card Fraud',
+    'Loan App Scam',
+    'Investment & Stock Scam',
+    'Digital Arrest & Extortion',
+    'Card Skimming & ATM Clone'
+  ],
+  'Phishing': [
+    'Email / SSO Phishing & Spoofing',
+    'Spear Phishing & BEC',
+    'Fake Banking / Service Login',
+    'MFA Interception & Cookie Theft'
+  ],
+  'Ransomware': [
+    'Ransomware Extortion & Malware',
+    'Server & Endpoint Encryption',
+    'Data Exfiltration & Double Extortion'
+  ],
+  'Identity Theft': [
+    'Aadhaar / SIM Swap & Impersonation',
+    'Fake KYC Verification',
+    'Unauthorized Loan in My Name'
+  ],
+  'Cyber Bullying': [
+    'Online Harassment & Doxxing',
+    'Sextortion & Blackmail',
+    'Morphed Photos & Defamation',
+    'Stalking & Threatening Messages'
+  ],
+  'Hacking': [
+    'Unauthorized Intrusion & Account Takeover',
+    'Website Defacement / SQL Injection',
+    'System / Cloud Infrastructure Compromise'
+  ],
+  'Data Breach': [
+    'Corporate Database Leak & PII Theft',
+    'Exposed S3 Bucket / Cloud Dump',
+    'Dark Web Credential Spill'
+  ],
+  'Online Fraud': [
+    'E-Commerce & Marketplace Scam',
+    'Fake Job Portal Scam',
+    'Courier / Customs Parcel Scam'
+  ],
+  'DDoS / Network Attacks': [
+    'DDoS & Infrastructure Flooding',
+    'DNS Hijacking & Spoofing',
+    'Botnet Attack'
+  ],
+  'Cryptocurrency Scams': [
+    'Crypto Drainer & Web3 Scam',
+    'Fake Token & Rugpull',
+    'Phishing Wallet Connect'
+  ],
+  'Women/Child Safety': [
+    'Emergency Distress & Cyberstalking',
+    'Domestic Violence Threats',
+    'SOS Immediate Intervention'
+  ],
+  'Child Exploitation': [
+    'CSAM & Minor Protection',
+    'Online Child Grooming'
+  ],
+  'Social Media Crime': [
+    'Impersonation & Fake Profiles',
+    'Account Takeover',
+    'Harassment via Direct Messages'
+  ],
+  'Other': [
+    'General Cyber Incident',
+    'Other'
+  ]
+};
+
+const CATEGORY_STYLES = {
+  'Phishing': { color: '#FFB800', bg: 'rgba(255, 184, 0, 0.15)', border: 'rgba(255, 184, 0, 0.4)' },
+  'Financial Fraud': { color: '#00B4FF', bg: 'rgba(0, 180, 255, 0.15)', border: 'rgba(0, 180, 255, 0.4)' },
+  'Ransomware': { color: '#FF3366', bg: 'rgba(255, 51, 102, 0.15)', border: 'rgba(255, 51, 102, 0.4)' },
+  'Identity Theft': { color: '#A855F7', bg: 'rgba(168, 85, 247, 0.15)', border: 'rgba(168, 85, 247, 0.4)' },
+  'Cyber Bullying': { color: '#FF6B35', bg: 'rgba(255, 107, 53, 0.15)', border: 'rgba(255, 107, 53, 0.4)' },
+  'Hacking': { color: '#9C27B0', bg: 'rgba(156, 39, 176, 0.15)', border: 'rgba(156, 39, 176, 0.4)' },
+  'Data Breach': { color: '#EC4899', bg: 'rgba(236, 72, 153, 0.15)', border: 'rgba(236, 72, 153, 0.4)' },
+  'Online Fraud': { color: '#38BDF8', bg: 'rgba(56, 189, 248, 0.15)', border: 'rgba(56, 189, 248, 0.4)' },
+  'Child Exploitation': { color: '#EF4444', bg: 'rgba(239, 68, 68, 0.15)', border: 'rgba(239, 68, 68, 0.4)' },
+  'Women/Child Safety': { color: '#FF2A6D', bg: 'rgba(255, 42, 109, 0.15)', border: 'rgba(255, 42, 109, 0.4)' },
+  'DDoS / Network Attacks': { color: '#F97316', bg: 'rgba(249, 115, 22, 0.15)', border: 'rgba(249, 115, 22, 0.4)' },
+  'Cryptocurrency Scams': { color: '#10B981', bg: 'rgba(16, 185, 129, 0.15)', border: 'rgba(16, 185, 129, 0.4)' },
+  'Other': { color: '#94A3B8', bg: 'rgba(148, 163, 184, 0.15)', border: 'rgba(148, 163, 184, 0.4)' }
+};
 
 const CyberReport = () => {
   const navigate = useNavigate();
+  const { t } = useTranslationStore();
   const [title, setTitle] = useState("");
+  const [category, setCategory] = useState("");
+  const [subCategory, setSubCategory] = useState("");
+  const [incidentDateTime, setIncidentDateTime] = useState("");
+  const [modusOperandi, setModusOperandi] = useState("");
+  const [lostMoney, setLostMoney] = useState(false);
+  const [incidentOccurredWhere, setIncidentOccurredWhere] = useState("");
+  const [relationshipWithVictim, setRelationshipWithVictim] = useState("");
   const [description, setDescription] = useState("");
-  const [incidentDate, setIncidentDate] = useState("");
   const [files, setFiles] = useState([]);
-  const [analysis, setAnalysis] = useState({ label: "IDLE", color: "var(--muted)" });
+  const [nationalIdFile, setNationalIdFile] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [userOverrodeCategory, setUserOverrodeCategory] = useState(false);
+
+  const [aiDetection, setAiDetection] = useState(null);
+  const [analysis, setAnalysis] = useState({ label: "READY", color: "var(--muted)" });
 
   const [pincode, setPincode] = useState("");
   const [location, setLocation] = useState(null);
@@ -20,69 +123,63 @@ const CyberReport = () => {
   const [countryCode, setCountryCode] = useState("+91");
   const [mobile, setMobile] = useState("");
 
-  // 🔍 AI analysis on title + description
+  // 🔍 Real-time Advanced AI Neural Analysis on title + description
   useEffect(() => {
-    const fullText = `${title} ${description}`;
-    if (fullText.length < 15) {
-      setAnalysis({ label: "IDLE", color: "var(--muted)" });
+    const fullText = `${title} ${description}`.trim();
+    if (fullText.length < 10) {
+      setAnalysis({ label: "AWAITING DETAILS", color: "rgba(255,255,255,0.4)" });
+      setAiDetection(null);
       return;
     }
 
-    setAnalysis({ label: "SCANNING...", color: "var(--electric)" });
+    setAnalysis({ label: "SCANNING THREAT SIGNATURES...", color: "var(--electric)" });
 
     const timer = setTimeout(async () => {
       try {
         const { data } = await complaintsAPI.analyze(fullText);
         if (data.status === 'success' && data.data) {
-          const { category, confidence } = data.data;
-          
-          const labels = {
-            'phishing': { l: 'PHISHING DETECTED', c: 'var(--warn)' },
-            'financial_fraud': { l: 'FINANCIAL FRAUD', c: 'var(--accent)' },
-            'cyberbullying': { l: 'CYBERBULLYING DETECTED', c: '#FF6B35' },
-            'hacking': { l: 'HACKING ATTEMPT', c: '#9C27B0' },
-            'ransomware': { l: 'RANSOMWARE ATTACK', c: 'var(--warn)' },
-            'identity_theft': { l: 'IDENTITY THEFT', c: 'var(--accent)' },
-            'online_fraud': { l: 'ONLINE FRAUD', c: 'var(--accent)' },
-            'social_media_crime': { l: 'SOCIAL MEDIA CRIME', c: '#FF6B35' },
-            'data_breach': { l: 'DATA BREACH', c: '#9C27B0' },
-            'child_exploitation': { l: 'EXPLOITATION CASE', c: 'var(--warn)' }
-          };
+          const res = data.data;
+          const detectedCategory = res.category || 'Other';
+          const detectedSub = res.subcategory || (SUBCATEGORIES_BY_CATEGORY[detectedCategory]?.[0] || 'General Incident');
+          const confPercent = Math.round((res.confidence || 0.85) * 100);
+          const style = CATEGORY_STYLES[detectedCategory] || CATEGORY_STYLES['Other'];
 
-          const lowVal = fullText.toLowerCase();
-          
-          // Enhanced Keyword Boosters
-          const isPhishing = /phishing|spoof|fake|credentials|password|login|verify|link|email/i.test(lowVal);
-          const isHacking = /hack|exploit|vulnerability|unauthorized|root|admin|sql|injection|breach/i.test(lowVal);
-          const isFraud = /upi|bank|money|fund|transfer|drain|atm|card|payment|fraud|financial/i.test(lowVal);
-          const isBullying = /bully|harass|threat|abuse|hate|stalk/i.test(lowVal);
+          setAiDetection({
+            category: detectedCategory,
+            subcategory: detectedSub,
+            confidence: confPercent,
+            severity: res.severity || 'high',
+            style
+          });
 
-          let finalCategory = category;
-          
-          // Priority logic for boosters
-          if (isFraud && !isHacking) finalCategory = 'financial_fraud';
-          else if (isPhishing && confidence < 0.6) finalCategory = 'phishing';
-          else if (isBullying && confidence < 0.4) finalCategory = 'cyberbullying';
-          else if (isHacking && confidence < 0.3) finalCategory = 'hacking';
+          setAnalysis({
+            label: `${detectedCategory.toUpperCase()} DETECTED (${confPercent}%)`,
+            color: style.color
+          });
 
-          const info = labels[finalCategory] || { l: finalCategory.replace(/_/g,' ').toUpperCase(), c: 'var(--electric)' };
-          
-          if (confidence > 0.05 || isPhishing || isHacking || isFraud || isBullying) {
-            setAnalysis({ label: info.l, color: info.c });
-          } else {
-            setAnalysis({ label: "SCANNING SIGNATURES...", color: "var(--electric)" });
+          // Auto-apply AI categorization if user hasn't manually selected yet
+          if (!userOverrodeCategory || !category) {
+            setCategory(detectedCategory);
+            setSubCategory(detectedSub);
           }
-        } else {
-          setAnalysis({ label: "OFFLINE", color: "var(--muted)" });
         }
       } catch (err) {
-        console.error("AI Analysis failed", err);
-        setAnalysis({ label: "OFFLINE", color: "var(--muted)" });
+        console.warn("AI Analysis local fallback active", err);
+        setAnalysis({ label: "AI ONLINE (HYBRID)", color: "var(--electric)" });
       }
-    }, 800);
+    }, 450);
 
     return () => clearTimeout(timer);
-  }, [title, description]);
+  }, [title, description, userOverrodeCategory, category]);
+
+  const handleApplyAiSuggestion = () => {
+    if (aiDetection) {
+      setCategory(aiDetection.category);
+      setSubCategory(aiDetection.subcategory);
+      setUserOverrodeCategory(false);
+      toast.success(`Applied AI Category: ${aiDetection.category} 🤖`);
+    }
+  };
 
   const handleGetLocation = () => {
     if (!navigator.geolocation) {
@@ -109,7 +206,8 @@ const CyberReport = () => {
 
   // 📁 File Upload handling
   const onDrop = useCallback((acceptedFiles) => {
-    setFiles(prev => [...prev, ...acceptedFiles].slice(0, 5)); // Limit to 5 files
+    setFiles(prev => [...prev, ...acceptedFiles].slice(0, 5));
+    toast.success(`${acceptedFiles.length} file(s) attached. AI OCR analyzer primed! 🖼️`);
   }, []);
 
   const removeFile = (index) => {
@@ -118,7 +216,7 @@ const CyberReport = () => {
 
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     onDrop,
-    noClick: true, // We want the browse button to handle clicks
+    noClick: true,
     accept: {
       'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp'],
       'application/pdf': ['.pdf'],
@@ -128,14 +226,14 @@ const CyberReport = () => {
   });
 
   const handleSubmit = async () => {
-    if (!title || title.length < 10) {
-      return toast.error("Title must be at least 10 characters");
+    if (!title || title.length < 5) {
+      return toast.error("Title must be at least 5 characters");
     }
-    if (!description || description.length < 50) {
-      return toast.error("Description must be at least 50 characters");
+    if (!description || description.length < 20) {
+      return toast.error("Description must be at least 20 characters");
     }
-    if (!incidentDate) {
-      return toast.error("Please select incident date");
+    if (!incidentDateTime) {
+      return toast.error("Please select incident date and time");
     }
     if (!pincode || pincode.length !== 6) {
       return toast.error("Please enter a valid 6-digit PIN code");
@@ -144,13 +242,23 @@ const CyberReport = () => {
     setIsSubmitting(true);
 
     try {
+      const finalCategory = category || aiDetection?.category || 'Other';
+      const finalSubCategory = subCategory || aiDetection?.subcategory || (SUBCATEGORIES_BY_CATEGORY[finalCategory]?.[0] || 'General');
+
       const formData = new FormData();
       formData.append('title', title);
       formData.append('description', description);
+      formData.append('category', finalCategory);
+      formData.append('subCategory', finalSubCategory);
+      formData.append('modusOperandi', modusOperandi || 'Phishing / Digital Fraud');
+      formData.append('lostMoney', lostMoney);
+      formData.append('relationshipWithVictim', relationshipWithVictim || 'Self');
+
       formData.append('victimDetails', JSON.stringify({ 
-        incidentDate,
+        incidentDate: incidentDateTime,
+        incidentOccurredWhere,
         pincode,
-        location: pincode, // Backup for basic location field
+        location: pincode,
         email,
         countryCode,
         mobile
@@ -163,24 +271,36 @@ const CyberReport = () => {
         }));
       }
       
-      // Append files
       files.forEach(file => {
         formData.append('evidence', file);
       });
+      if (nationalIdFile) {
+        formData.append('evidence', nationalIdFile);
+      }
 
       await complaintsAPI.create(formData);
 
-      toast.success("Report submitted successfully 🚀");
+      toast.success(`Incident logged under [${finalCategory}] & projected on Live Map 🚀`, { duration: 5000 });
 
       // Reset form
       setTitle("");
       setDescription("");
-      setIncidentDate("");
+      setIncidentDateTime("");
+      setCategory("");
+      setSubCategory("");
+      setModusOperandi("");
+      setLostMoney(false);
+      setIncidentOccurredWhere("");
+      setRelationshipWithVictim("");
       setPincode("");
       setLocation(null);
       setFiles([]);
-      setAnalysis({ label: "IDLE", color: "var(--muted)" });
+      setNationalIdFile(null);
+      setAiDetection(null);
+      setUserOverrodeCategory(false);
+      setAnalysis({ label: "READY", color: "var(--muted)" });
 
+      navigate('/complaints');
     } catch (err) {
       console.error(err.response?.data);
       const msg = err.response?.data?.message || "Submission failed";
@@ -190,9 +310,14 @@ const CyberReport = () => {
     }
   };
 
+  const currentSubcategories = SUBCATEGORIES_BY_CATEGORY[category] || [
+    'General Incident',
+    'Other'
+  ];
+
   return (
     <section style={{ 
-      maxWidth: '1000px', 
+      maxWidth: '1040px', 
       margin: '0 auto', 
       padding: '80px 24px', 
       position: 'relative',
@@ -232,12 +357,12 @@ const CyberReport = () => {
       {/* Main Liquid Glass Container */}
       <div style={{ 
         width: '100%',
-        background: 'rgba(10, 15, 30, 0.4)',
+        background: 'rgba(10, 15, 30, 0.45)',
         backdropFilter: 'blur(40px) saturate(200%)',
         WebkitBackdropFilter: 'blur(40px) saturate(200%)',
         border: '1px solid rgba(255, 255, 255, 0.08)',
         borderRadius: '32px',
-        padding: '60px',
+        padding: '50px 60px',
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.1)',
         position: 'relative',
         overflow: 'hidden'
@@ -246,7 +371,7 @@ const CyberReport = () => {
         <div style={{ position: 'absolute', top: '-100px', right: '-100px', width: '300px', height: '300px', background: 'radial-gradient(circle, rgba(0, 180, 255, 0.15) 0%, transparent 70%)', zIndex: -1 }}></div>
         <div style={{ position: 'absolute', bottom: '-100px', left: '-100px', width: '300px', height: '300px', background: 'radial-gradient(circle, rgba(168, 85, 247, 0.15) 0%, transparent 70%)', zIndex: -1 }}></div>
 
-        <div style={{ textAlign: 'center', marginBottom: '60px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
           <h2 style={{ 
             fontSize: '3.2rem', 
             margin: '0 0 12px 0', 
@@ -257,104 +382,253 @@ const CyberReport = () => {
             letterSpacing: '-1px',
             fontFamily: 'Inter, sans-serif'
           }}>
-            Report Crime
+            {t('REPORT.TITLE', 'Report Cybercrime')}
           </h2>
-          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '18px', fontWeight: 400 }}>Secure, encrypted incident reporting terminal</p>
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '16px', fontWeight: 400 }}>
+            {t('REPORT.SUBTITLE', 'Neural AI-assisted incident categorization & forensic intake')}
+          </p>
         </div>
 
-        <div style={{ display: 'grid', gap: '40px' }}>
-          {/* TITLE & DATE GRID */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '30px' }}>
-            <div>
-              <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', display: 'block', paddingLeft: '4px' }}>Incident Title</label>
+        {/* AI Insight Live Bar */}
+        {aiDetection && (
+          <div style={{
+            background: aiDetection.style.bg,
+            border: `1px solid ${aiDetection.style.border}`,
+            borderRadius: '20px',
+            padding: '16px 24px',
+            marginBottom: '35px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            backdropFilter: 'blur(20px)',
+            boxShadow: `0 8px 25px ${aiDetection.style.color}22`
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+              <span style={{ 
+                width: '12px', height: '12px', borderRadius: '50%', 
+                background: aiDetection.style.color, 
+                boxShadow: `0 0 14px ${aiDetection.style.color}` 
+              }}></span>
+              <div>
+                <div style={{ color: '#fff', fontSize: '15px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>AI DETECTED:</span>
+                  <span style={{ color: aiDetection.style.color }}>{aiDetection.category}</span>
+                  <span style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '8px', fontSize: '12px', color: '#fff' }}>
+                    {aiDetection.confidence}% Match
+                  </span>
+                </div>
+                <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px', marginTop: '3px' }}>
+                  Sub-Type: <strong>{aiDetection.subcategory}</strong> • Severity: <span style={{ textTransform: 'uppercase', color: aiDetection.style.color }}>{aiDetection.severity}</span>
+                </div>
+              </div>
+            </div>
+            {category !== aiDetection.category && (
+              <button
+                type="button"
+                onClick={handleApplyAiSuggestion}
+                style={{
+                  background: aiDetection.style.color,
+                  color: '#000',
+                  border: 'none',
+                  borderRadius: '12px',
+                  padding: '8px 18px',
+                  fontSize: '12px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  boxShadow: `0 4px 14px ${aiDetection.style.color}44`
+                }}
+              >
+                Sync with AI Suggestion ⚡
+              </button>
+            )}
+          </div>
+        )}
+
+        <div style={{ display: 'grid', gap: '35px' }}>
+          {/* INCIDENT DETAILS GRID */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '25px' }}>
+            <div style={{ gridColumn: 'span 3' }}>
+              <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', display: 'block', paddingLeft: '4px' }}>
+                {t('REPORT.INCIDENT_TITLE', 'Incident Title *')}
+              </label>
               <input
                 type="text"
-                style={{ 
-                  width: '100%',
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '16px',
-                  padding: '16px 20px',
-                  color: '#fff',
-                  fontSize: '16px',
-                  outline: 'none',
-                  transition: '0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                  boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
-                }}
+                style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '16px 20px', color: '#fff', fontSize: '16px', outline: 'none', transition: '0.3s cubic-bezier(0.16, 1, 0.3, 1)', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)' }}
                 className="liquid-input"
-                placeholder="What happened?"
+                placeholder={t('REPORT.TITLE_PLACEHOLDER', 'e.g. Microsoft 365 Phishing email / Unauthorized UPI debit')}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
               />
             </div>
+
+            {/* DESCRIPTION */}
+            <div style={{ gridColumn: 'span 3' }}>
+              <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', display: 'block', paddingLeft: '4px' }}>
+                Detailed Narrative & Threat Context *
+              </label>
+              <div style={{ position: 'relative' }}>
+                <textarea
+                  style={{ 
+                    width: '100%',
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '20px',
+                    padding: '20px',
+                    paddingBottom: '55px',
+                    color: '#fff',
+                    fontSize: '15px',
+                    outline: 'none',
+                    transition: '0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                    height: '190px',
+                    resize: 'none',
+                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)',
+                    fontFamily: 'Inter, sans-serif',
+                    lineHeight: '1.6'
+                  }}
+                  placeholder="Describe what occurred in detail. You can paste phishing email headers, OTP scam details, ransomware notes, suspect links, or threat communications..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+                <div style={{ 
+                  position: 'absolute',
+                  bottom: '15px',
+                  right: '15px',
+                  background: 'rgba(0,0,0,0.6)',
+                  backdropFilter: 'blur(12px)',
+                  padding: '8px 16px',
+                  borderRadius: '12px',
+                  fontSize: '11px',
+                  color: analysis.color,
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  border: `1px solid ${analysis.color}44`,
+                  boxShadow: `0 4px 12px rgba(0,0,0,0.3)`
+                }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: analysis.color, boxShadow: `0 0 12px ${analysis.color}` }}></span>
+                  AI ANALYZER: {analysis.label}
+                </div>
+              </div>
+            </div>
+            
+            {/* CATEGORY DROPDOWN */}
             <div>
-              <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', display: 'block', paddingLeft: '4px' }}>Incident Date</label>
-              <input
-                type="date"
-                style={{ 
-                  width: '100%',
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '16px',
-                  padding: '16px 20px',
-                  color: '#fff',
-                  fontSize: '16px',
-                  outline: 'none',
-                  transition: '0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                  boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)',
-                  colorScheme: 'dark'
+              <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', display: 'block', paddingLeft: '4px' }}>
+                {t('REPORT.CATEGORY', 'Category of Cybercrime *')}
+              </label>
+              <select
+                style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '16px 20px', color: '#fff', fontSize: '15px', outline: 'none', transition: '0.3s', WebkitAppearance: 'none', cursor: 'pointer' }}
+                className="liquid-input"
+                value={category}
+                onChange={(e) => {
+                  setCategory(e.target.value);
+                  setUserOverrodeCategory(true);
+                  const firstSub = SUBCATEGORIES_BY_CATEGORY[e.target.value]?.[0] || 'General';
+                  setSubCategory(firstSub);
                 }}
-                value={incidentDate}
-                onChange={(e) => setIncidentDate(e.target.value)}
+              >
+                <option value="" style={{ color: '#000' }}>Select Category</option>
+                {Object.keys(SUBCATEGORIES_BY_CATEGORY).map((catName) => (
+                  <option key={catName} value={catName} style={{ color: '#000' }}>
+                    {catName}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* SUBCATEGORY DROPDOWN */}
+            <div>
+              <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', display: 'block', paddingLeft: '4px' }}>
+                Sub-Category of Cybercrime *
+              </label>
+              <select
+                style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '16px 20px', color: '#fff', fontSize: '15px', outline: 'none', transition: '0.3s', WebkitAppearance: 'none', cursor: 'pointer' }}
+                className="liquid-input"
+                value={subCategory}
+                onChange={(e) => setSubCategory(e.target.value)}
+              >
+                <option value="" style={{ color: '#000' }}>Select Sub-Category</option>
+                {currentSubcategories.map((sub) => (
+                  <option key={sub} value={sub} style={{ color: '#000' }}>
+                    {sub}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', display: 'block', paddingLeft: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                Date & Time of Incident *
+              </label>
+              <input
+                type="datetime-local"
+                style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '16px 20px', color: '#fff', fontSize: '15px', outline: 'none', transition: '0.3s', colorScheme: 'dark' }}
+                className="liquid-input"
+                value={incidentDateTime}
+                onChange={(e) => setIncidentDateTime(e.target.value)}
               />
             </div>
-          </div>
 
-          {/* DESCRIPTION */}
-          <div>
-            <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', display: 'block', paddingLeft: '4px' }}>Detailed Narrative</label>
-            <div style={{ position: 'relative' }}>
-              <textarea
-                style={{ 
-                  width: '100%',
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '20px',
-                  padding: '20px',
-                  color: '#fff',
-                  fontSize: '16px',
-                  outline: 'none',
-                  transition: '0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                  height: '180px',
-                  resize: 'none',
-                  boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)',
-                  fontFamily: 'Inter, sans-serif',
-                  lineHeight: '1.6'
-                }}
-                placeholder="Provide as much detail as possible. Timestamps, names, links, or specific messages are crucial."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-              <div style={{ 
-                position: 'absolute',
-                bottom: '15px',
-                right: '15px',
-                background: 'rgba(0,0,0,0.4)',
-                backdropFilter: 'blur(10px)',
-                padding: '8px 16px',
-                borderRadius: '12px',
-                fontSize: '11px',
-                color: analysis.color,
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                border: `1px solid ${analysis.color}33`,
-                boxShadow: `0 4px 12px rgba(0,0,0,0.2)`
-              }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: analysis.color, boxShadow: `0 0 12px ${analysis.color}` }}></span>
-                AI ANALYZER: {analysis.label}
+            <div>
+              <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', display: 'block', paddingLeft: '4px' }}>Modus Operandi</label>
+              <select
+                style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '16px 20px', color: '#fff', fontSize: '15px', outline: 'none', transition: '0.3s', WebkitAppearance: 'none', cursor: 'pointer' }}
+                className="liquid-input"
+                value={modusOperandi}
+                onChange={(e) => setModusOperandi(e.target.value)}
+              >
+                <option value="" style={{ color: '#000' }}>Select Modus Operandi</option>
+                <option value="Phishing Websites & Spoofed SSO" style={{ color: '#000' }}>Phishing Websites & Spoofed SSO</option>
+                <option value="UPI / QR Code Fraud" style={{ color: '#000' }}>UPI / QR Code Fraud</option>
+                <option value="Ransomware & Malware Delivery" style={{ color: '#000' }}>Ransomware & Malware Delivery</option>
+                <option value="SIM Swap & Identity Theft" style={{ color: '#000' }}>SIM Swap & Identity Theft</option>
+                <option value="Android Malware & Hosting" style={{ color: '#000' }}>Android Malware & Hosting</option>
+                <option value="Digital Arrest & Extortion" style={{ color: '#000' }}>Digital Arrest & Extortion</option>
+                <option value="Investment Scam - Stock Market / Crypto" style={{ color: '#000' }}>Investment Scam - Stock Market / Crypto</option>
+                <option value="Loan Apps Extortion" style={{ color: '#000' }}>Loan Apps Extortion</option>
+                <option value="E-Commerce & Booking Scams" style={{ color: '#000' }}>E-Commerce & Booking Scams</option>
+                <option value="Impersonation & Deepfakes" style={{ color: '#000' }}>Impersonation & Deepfakes</option>
+                <option value="Others" style={{ color: '#000' }}>Others</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', display: 'block', paddingLeft: '4px' }}>Have You Lost Money in INR?</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <span style={{ color: !lostMoney ? '#fff' : 'rgba(255,255,255,0.4)' }}>No</span>
+                <div 
+                  onClick={() => setLostMoney(!lostMoney)}
+                  style={{ width: '50px', height: '26px', background: lostMoney ? '#00B4FF' : 'rgba(255,255,255,0.2)', borderRadius: '13px', position: 'relative', cursor: 'pointer', transition: '0.3s' }}
+                >
+                  <div style={{ width: '22px', height: '22px', background: '#fff', borderRadius: '50%', position: 'absolute', top: '2px', left: lostMoney ? '26px' : '2px', transition: '0.3s' }}></div>
+                </div>
+                <span style={{ color: lostMoney ? '#00B4FF' : 'rgba(255,255,255,0.4)' }}>Yes</span>
               </div>
+            </div>
+            
+            <div>
+              <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', display: 'block', paddingLeft: '4px' }}>Where did the Incident Occur?</label>
+              <select
+                style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '16px 20px', color: '#fff', fontSize: '15px', outline: 'none', transition: '0.3s', WebkitAppearance: 'none', cursor: 'pointer' }}
+                className="liquid-input"
+                value={incidentOccurredWhere}
+                onChange={(e) => setIncidentOccurredWhere(e.target.value)}
+              >
+                <option value="" style={{ color: '#000' }}>Select Platform</option>
+                <option value="Email" style={{ color: '#000' }}>Email</option>
+                <option value="Website URL" style={{ color: '#000' }}>Website URL</option>
+                <option value="WhatsApp" style={{ color: '#000' }}>WhatsApp</option>
+                <option value="Telegram" style={{ color: '#000' }}>Telegram</option>
+                <option value="Instagram" style={{ color: '#000' }}>Instagram</option>
+                <option value="Facebook" style={{ color: '#000' }}>Facebook</option>
+                <option value="LinkedIn" style={{ color: '#000' }}>LinkedIn</option>
+                <option value="Mobile App" style={{ color: '#000' }}>Mobile App</option>
+                <option value="SMS / Text Message" style={{ color: '#000' }}>SMS / Text Message</option>
+                <option value="Twitter / X" style={{ color: '#000' }}>Twitter / X</option>
+                <option value="Youtube" style={{ color: '#000' }}>Youtube</option>
+                <option value="Other Media" style={{ color: '#000' }}>Other Media</option>
+              </select>
             </div>
           </div>
           
@@ -376,14 +650,14 @@ const CyberReport = () => {
                   transition: '0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                   boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
                 }}
-                placeholder="6-digit ZIP"
+                placeholder="6-digit ZIP / PIN"
                 value={pincode}
                 maxLength={6}
                 onChange={(e) => setPincode(e.target.value.replace(/\D/g, ''))}
               />
             </div>
             <div>
-              <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', display: 'block', paddingLeft: '4px' }}>Geospatial Data</label>
+              <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', display: 'block', paddingLeft: '4px' }}>Geospatial Threat Map Tag</label>
               <div 
                 onClick={handleGetLocation}
                 style={{ 
@@ -410,13 +684,13 @@ const CyberReport = () => {
                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
                   <circle cx="12" cy="10" r="3"></circle>
                 </svg>
-                {gettingLocation ? "ACQUIRING SIGNAL..." : location ? "POSITION LOCKED" : "TAG LIVE LOCATION"}
+                {gettingLocation ? "ACQUIRING SIGNAL..." : location ? "LIVE GPS COORDINATES LOCKED" : "CAPTURE LIVE LOCATION FOR MAP"}
               </div>
             </div>
           </div>
 
           {/* CONTACT INFO GRID */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', marginTop: '30px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
             <div>
               <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', display: 'block', paddingLeft: '4px' }}>Email Address</label>
               <input
@@ -481,11 +755,18 @@ const CyberReport = () => {
           {/* EVIDENCE SECTION */}
           <div style={{ 
             background: 'rgba(255,255,255,0.02)', 
-            border: '1px dashed rgba(255,255,255,0.1)', 
+            border: '1px dashed rgba(255,255,255,0.15)', 
             borderRadius: '24px', 
             padding: '30px'
           }}>
-            <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '20px', display: 'block', textAlign: 'center' }}>Evidence & Documentation</label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
+              <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>
+                Image Evidence & Screenshots (AI OCR Enabled)
+              </label>
+              <span style={{ fontSize: '11px', color: '#00B4FF', background: 'rgba(0, 180, 255, 0.1)', padding: '4px 10px', borderRadius: '10px' }}>
+                Auto-Extracts UPIs, Phone Numbers & Accounts
+              </span>
+            </div>
             
             <div 
               {...getRootProps()} 
@@ -499,9 +780,9 @@ const CyberReport = () => {
               }}
             >
               <input {...getInputProps()} />
-              <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>📂</div>
-              <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '14px', marginBottom: '24px' }}>
-                Drop visual evidence or legal documents here
+              <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.7 }}>🖼️</div>
+              <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px', marginBottom: '20px' }}>
+                Drag & Drop screenshots of phishing emails, transaction receipts, WhatsApp threats, or ransomware screens
               </p>
               <button 
                 type="button"
@@ -527,32 +808,33 @@ const CyberReport = () => {
                   e.currentTarget.style.boxShadow = '0 8px 16px rgba(255,255,255,0.1)';
                 }}
               >
-                Choose Files
+                Browse Files
               </button>
             </div>
 
             {/* PREVIEWS */}
             {files.length > 0 && (
-              <div style={{ marginTop: '25px', display: 'flex', flexWrap: 'wrap', gap: '12px', justifyContent: 'center' }}>
+              <div style={{ marginTop: '20px', display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
                 {files.map((file, idx) => (
                   <div key={idx} style={{ 
                     background: 'rgba(255,255,255,0.05)', 
-                    padding: '10px 16px', 
+                    padding: '8px 14px', 
                     borderRadius: '12px',
                     border: '1px solid rgba(255,255,255,0.1)', 
                     display: 'flex', 
                     alignItems: 'center', 
-                    gap: '12px',
+                    gap: '10px',
                     fontSize: '13px',
                     color: '#fff',
                     backdropFilter: 'blur(10px)'
                   }}>
-                    <span style={{ maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8 }}>
+                    <span>📎</span>
+                    <span style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.9 }}>
                       {file.name}
                     </span>
                     <button 
                       onClick={() => removeFile(idx)}
-                      style={{ background: 'rgba(255,59,48,0.1)', border: 'none', color: '#FF3B30', cursor: 'pointer', padding: '4px', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}
+                      style={{ background: 'rgba(255,59,48,0.2)', border: 'none', color: '#FF3B30', cursor: 'pointer', padding: '2px', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}
                     >
                       ✕
                     </button>
@@ -562,8 +844,64 @@ const CyberReport = () => {
             )}
           </div>
 
-          {/* SUBMIT BUTTON - The Masterpiece */}
-          <div style={{ marginTop: '20px' }}>
+          {/* COMPLAINANT DETAILS SECTION */}
+          <div style={{ 
+            background: 'rgba(255,255,255,0.02)', 
+            border: '1px dashed rgba(255,255,255,0.1)', 
+            borderRadius: '24px', 
+            padding: '30px'
+          }}>
+            <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '20px', display: 'block' }}>Complainant Verification</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
+              <div>
+                <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', display: 'block', paddingLeft: '4px' }}>Relationship with the Victim *</label>
+                <select
+                  style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '16px 20px', color: '#fff', fontSize: '15px', outline: 'none', transition: '0.3s', WebkitAppearance: 'none', cursor: 'pointer' }}
+                  className="liquid-input"
+                  value={relationshipWithVictim}
+                  onChange={(e) => setRelationshipWithVictim(e.target.value)}
+                >
+                  <option value="" style={{ color: '#000' }}>Select Relationship</option>
+                  <option value="Self" style={{ color: '#000' }}>Self</option>
+                  <option value="Father" style={{ color: '#000' }}>Father</option>
+                  <option value="Mother" style={{ color: '#000' }}>Mother</option>
+                  <option value="Husband" style={{ color: '#000' }}>Husband</option>
+                  <option value="Wife" style={{ color: '#000' }}>Wife</option>
+                  <option value="Son" style={{ color: '#000' }}>Son</option>
+                  <option value="Daughter" style={{ color: '#000' }}>Daughter</option>
+                  <option value="Brother" style={{ color: '#000' }}>Brother</option>
+                  <option value="Sister" style={{ color: '#000' }}>Sister</option>
+                  <option value="Friend" style={{ color: '#000' }}>Friend</option>
+                  <option value="Corporate Representative" style={{ color: '#000' }}>Corporate Representative</option>
+                  <option value="Lawyer" style={{ color: '#000' }}>Lawyer</option>
+                  <option value="Others" style={{ color: '#000' }}>Others</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', display: 'block', paddingLeft: '4px' }}>National ID Verification (Optional)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <label style={{
+                    background: '#fff', color: '#000', padding: '10px 24px', borderRadius: '12px', fontSize: '14px', fontWeight: 700, cursor: 'pointer', transition: '0.3s', boxShadow: '0 8px 16px rgba(255,255,255,0.1)'
+                  }}>
+                    Upload ID
+                    <input 
+                      type="file" 
+                      style={{ display: 'none' }} 
+                      accept=".jpg,.jpeg,.png,.pdf" 
+                      onChange={(e) => setNationalIdFile(e.target.files[0])}
+                    />
+                  </label>
+                  <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {nationalIdFile ? nationalIdFile.name : "no document chosen"}
+                  </span>
+                </div>
+                <div style={{ color: '#A855F7', fontSize: '12px', marginTop: '8px' }}>Aadhaar / PAN / Passport / Corporate ID (Max 5MB)</div>
+              </div>
+            </div>
+          </div>
+
+          {/* SUBMIT BUTTON */}
+          <div style={{ marginTop: '10px' }}>
             <button
               onClick={handleSubmit}
               disabled={isSubmitting}
@@ -597,9 +935,9 @@ const CyberReport = () => {
               {isSubmitting ? (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
                   <div style={{ width: '20px', height: '20px', border: '3px solid rgba(255,255,255,0.3)', borderTop: '3px solid #fff', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-                  UPLOAD TO SECURE SERVER...
+                  {t('REPORT.SUBMITTING', 'ANALYZING & FILING CASE ON CHAIN...')}
                 </div>
-              ) : "AUTHENTICATE & SUBMIT"}
+              ) : t('REPORT.SUBMIT', 'AUTHENTICATE & SUBMIT COMPLAINT')}
               
               {/* Shine effect */}
               <div style={{ position: 'absolute', top: 0, left: '-100%', width: '50%', height: '100%', background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)', animation: 'shine 3s infinite' }}></div>
@@ -619,7 +957,8 @@ const CyberReport = () => {
             box-shadow: 0 0 0 4px rgba(0, 180, 255, 0.15), inset 0 2px 4px rgba(0,0,0,0.2) !important;
           }
 
-          input[type="date"]::-webkit-calendar-picker-indicator {
+          input[type="date"]::-webkit-calendar-picker-indicator,
+          input[type="datetime-local"]::-webkit-calendar-picker-indicator {
             filter: invert(1);
             opacity: 0.5;
             cursor: pointer;

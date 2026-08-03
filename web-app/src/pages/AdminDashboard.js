@@ -447,11 +447,23 @@ export default function AdminDashboard() {
                 <button 
                   onClick={() => navigate('/admin/complaints')}
                   style={{ 
-                    width: '100%', padding: '20px', borderRadius: '20px', background: '#007AFF',
+                    width: '100%', padding: '16px', borderRadius: '18px', background: '#007AFF',
                     border: 'none', color: '#fff', fontWeight: 800, fontSize: '13px', cursor: 'pointer',
-                    boxShadow: '0 10px 20px rgba(0, 122, 255, 0.3)'
+                    boxShadow: '0 10px 20px rgba(0, 122, 255, 0.3)', letterSpacing: '1px'
                   }}
                 >MANAGE REPOSITORY</button>
+                <button 
+                  onClick={() => navigate('/admin/info')}
+                  style={{ 
+                    width: '100%', padding: '16px', borderRadius: '18px', 
+                    background: 'linear-gradient(135deg, rgba(0,180,255,0.15), rgba(0,255,170,0.15))',
+                    border: '1px solid rgba(0,180,255,0.4)', color: '#00B4FF', fontWeight: 800, fontSize: '13px', cursor: 'pointer',
+                    boxShadow: '0 8px 16px rgba(0,180,255,0.15)', letterSpacing: '1px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+                  }}
+                >
+                  <span>👥</span> USER & PERSONNEL DIRECTORY (INFO)
+                </button>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   {['AUDIT', 'ALERT', 'SYNC', 'PURGE'].map((label, i) => (
                     <button key={i} onClick={() => handleAction(label)} style={{ padding: '16px', borderRadius: '16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>{label}</button>

@@ -28,7 +28,11 @@ import GlobalChat from './pages/GlobalChat';
 import AdminLinkAnalysis from './pages/AdminLinkAnalysis';
 import RegisterChoice from './pages/RegisterChoice';
 import Settings from './pages/Settings';
-import ForensicScanner from './pages/ForensicScanner';
+import SuspectSearch from './pages/SuspectSearch';
+import Feedback from './pages/Feedback';
+import FAQ from './pages/FAQ';
+import AdminSafety from './pages/AdminSafety';
+import Learn from './pages/Learn';
 
 // Components
 import CyberReport from './components/CyberReport';
@@ -198,17 +202,22 @@ export default function App() {
         <Route path="/admin/complaints" element={<ProtectedRoute requiredRole="admin"><AdminComplaints /></ProtectedRoute>} />
         <Route path="/admin/ml" element={<ProtectedRoute requiredRole="admin"><AdminML /></ProtectedRoute>} />
         <Route path="/admin/users" element={<ProtectedRoute requiredRole="admin"><AdminUsers /></ProtectedRoute>} />
+        <Route path="/admin/info" element={<ProtectedRoute requiredRole="admin"><AdminUsers /></ProtectedRoute>} />
         <Route path="/admin/analytics" element={<ProtectedRoute requiredRole="admin"><AdminAnalytics /></ProtectedRoute>} />
         <Route path="/admin/database" element={<ProtectedRoute requiredRole="admin"><AdminDatabase /></ProtectedRoute>} />
         <Route path="/admin/link-analysis" element={<ProtectedRoute requiredRole="admin"><AdminLinkAnalysis /></ProtectedRoute>} />
         <Route path="/admin/map" element={<ProtectedRoute requiredRole="admin"><AdminMap /></ProtectedRoute>} />
         <Route path="/admin/mails" element={<ProtectedRoute requiredRole="admin"><AdminMails /></ProtectedRoute>} />
+        <Route path="/admin/safety" element={<ProtectedRoute requiredRole="officer"><AdminSafety /></ProtectedRoute>} />
         
         {/* Developer Override Route */}
         <Route path="/developer" element={<ProtectedRoute><DeveloperPage /></ProtectedRoute>} />
         
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-        <Route path="/forensic-scanner" element={<ProtectedRoute><ForensicScanner /></ProtectedRoute>} />
+        <Route path="/learn" element={<ProtectedRoute><Learn /></ProtectedRoute>} />
+        <Route path="/suspect-search" element={<ProtectedRoute><SuspectSearch /></ProtectedRoute>} />
+        <Route path="/feedback" element={<Feedback />} />
+        <Route path="/faq" element={<FAQ />} />
 
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

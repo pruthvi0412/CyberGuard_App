@@ -15,18 +15,18 @@ const userSchema = new mongoose.Schema({
     unique: true,
     lowercase: true,
     trim: true,
-    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Invalid email format'],
+    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,})+$/, 'Invalid email format'],
   },
   password: {
     type: String,
     required: [true, 'Password is required'],
-    minlength: [8, 'Password must be at least 8 characters'],
+    minlength: [6, 'Password must be at least 6 characters'],
     select: false,
   },
   phone: {
     type: String,
     trim: true,
-    match: [/^[6-9]\d{9}$/, 'Invalid Indian phone number'],
+    match: [/^(\+?[0-9\s\-()]{7,20})?$/, 'Invalid phone number format'],
   },
   role: {
     type: String,

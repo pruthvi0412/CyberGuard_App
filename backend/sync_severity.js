@@ -1,5 +1,11 @@
 const mongoose = require('mongoose');
+const dns = require('dns');
 const Complaint = require('./src/models/Complaint');
+
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
+} catch (_) {}
+
 require('dotenv').config();
 
 const updateSeverities = async () => {

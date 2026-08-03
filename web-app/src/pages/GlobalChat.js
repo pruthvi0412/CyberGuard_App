@@ -8,8 +8,9 @@ import useNotificationStore from '../hooks/useNotificationStore';
 import Navbar from '../components/Navbar';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
+import { getAvatarUrl, getAvatarFallback, getAvatarGradient } from '../utils/avatar';
 
-const SOCKET_URL = process.env.REACT_APP_API_URL || 'http://localhost:5002';
+const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || (process.env.REACT_APP_API_URL ? process.env.REACT_APP_API_URL.replace(/\/api\/?$/, '') : 'http://localhost:5002');
 
 export default function GlobalChat() {
   const { user } = useAuthStore();
@@ -28,24 +29,29 @@ export default function GlobalChat() {
   const [unreadCounts, setUnreadCounts] = useState({});
   const [lastMessageTimes, setLastMessageTimes] = useState({});
 
+  // Helper for current user ID
+  const currentUserId = (user?._id || user?.id || '')?.toString();
+
   // Encryption logic for private chats
   const getEncryptionKey = (otherId) => {
-    const myId = user._id || user.id;
-    const ids = [myId, otherId].sort();
+    const myId = currentUserId || 'anon';
+    const ids = [myId, String(otherId || '')].sort();
     return CryptoJS.SHA256(ids.join('-')).toString().slice(0, 32);
   };
 
   const decrypt = (encrypted, iv, key) => {
     try {
-      if (!iv) return encrypted;
+      if (!iv || !encrypted) return encrypted || '';
       const decrypted = CryptoJS.AES.decrypt(encrypted, CryptoJS.enc.Utf8.parse(key), {
         iv: CryptoJS.enc.Hex.parse(iv),
         mode: CryptoJS.mode.CBC,
         padding: CryptoJS.pad.Pkcs7
       });
       const result = decrypted.toString(CryptoJS.enc.Utf8);
-      return result ? result : encrypted;
-    } catch (e) { return encrypted; }
+      return result || encrypted;
+    } catch (e) { 
+      return encrypted || ''; 
+    }
   };
 
   useEffect(() => {
@@ -53,8 +59,11 @@ export default function GlobalChat() {
     const fetchUsers = async () => {
       try {
         const { data } = await userAPI.getAll();
-        setUsers(data.data.users);
-      } catch (err) { toast.error('Failed to load users'); }
+        const userList = data?.data?.users || [];
+        setUsers(userList);
+      } catch (err) { 
+        toast.error('Failed to load users'); 
+      }
     };
     fetchUsers();
 
@@ -64,66 +73,78 @@ export default function GlobalChat() {
       transports: ['websocket']
     });
 
-    socketRef.current.emit('join-user', user._id || user.id);
+    if (currentUserId) {
+      socketRef.current.emit('join-user', currentUserId);
+    }
     socketRef.current.emit('join-global');
 
     socketRef.current.on('new-global-message', (data) => {
-      if (selectedChat.id === 'global') {
-        setMessages(prev => [...prev, { ...data, createdAt: new Date() }]);
+      if (selectedChat?.id === 'global' && data) {
+        setMessages(prev => [...prev, { ...data, createdAt: data.createdAt || new Date() }]);
       }
     });
 
     socketRef.current.on('new-private-message', (data) => {
-      // If we are currently chatting with the sender or recipient
-      const isRelevant = (selectedChat.id === data.sender._id) || (selectedChat.id === data.recipientId);
+      if (!data) return;
+      const senderId = (data.sender?._id || (typeof data.sender === 'string' ? data.sender : null))?.toString();
+      const recipientId = (data.recipientId || data.recipient?._id || (typeof data.recipient === 'string' ? data.recipient : null))?.toString();
       
-      const otherUserId = data.sender._id === (user._id || user.id) ? data.recipientId : data.sender._id;
+      const isRelevant = (selectedChat?.id === senderId) || (selectedChat?.id === recipientId);
+      const otherUserId = senderId === currentUserId ? recipientId : senderId;
       
-      setLastMessageTimes(prev => ({
-        ...prev,
-        [otherUserId]: new Date().getTime()
-      }));
+      if (otherUserId) {
+        setLastMessageTimes(prev => ({
+          ...prev,
+          [otherUserId]: new Date().getTime()
+        }));
+      }
 
-      if (isRelevant) {
+      if (isRelevant && selectedChat?.id) {
         const key = getEncryptionKey(selectedChat.id);
         setMessages(prev => [...prev, { 
           ...data, 
           decryptedContent: data.iv ? decrypt(data.content, data.iv, key) : data.content,
-          createdAt: new Date() 
+          createdAt: data.createdAt || new Date() 
         }]);
       } else {
-        if (data.sender._id !== (user._id || user.id)) {
+        if (senderId && senderId !== currentUserId) {
           setUnreadCounts(prev => ({
             ...prev,
-            [data.sender._id]: (prev[data.sender._id] || 0) + 1
+            [senderId]: (prev[senderId] || 0) + 1
           }));
         }
         useNotificationStore.getState().addNotification({
           type: 'message',
-          message: `Direct Message from ${data.sender.name}: ${data.content}`
+          message: `Direct Message from ${data.sender?.name || 'Officer'}: ${data.content || ''}`
         });
       }
     });
 
-    return () => socketRef.current.disconnect();
-  }, [selectedChat.id]);
+    return () => socketRef.current?.disconnect();
+  }, [selectedChat?.id, currentUserId]);
 
   useEffect(() => {
     const fetchHistory = async () => {
+      if (!selectedChat) return;
       setLoading(true);
       try {
         if (selectedChat.type === 'global') {
           const { data } = await chatsAPI.getGlobal();
-          setMessages(data.data.messages.map(m => ({ ...m, decryptedContent: m.content })));
-        } else {
+          const list = data?.data?.messages || [];
+          setMessages(list.map(m => ({ ...m, decryptedContent: m?.content || '' })));
+        } else if (selectedChat.id) {
           const { data } = await chatsAPI.getPrivate(selectedChat.id);
           const key = getEncryptionKey(selectedChat.id);
-          setMessages(data.data.messages.map(m => ({
+          const list = data?.data?.messages || [];
+          setMessages(list.map(m => ({
             ...m,
-            decryptedContent: m.iv ? decrypt(m.content, m.iv, key) : m.content
+            decryptedContent: m?.iv ? decrypt(m.content, m.iv, key) : (m?.content || '')
           })));
         }
-      } catch (err) { toast.error('History failed'); }
+      } catch (err) { 
+        console.error('Chat history fetch error:', err);
+        toast.error('History failed to load'); 
+      }
       setLoading(false);
     };
     fetchHistory();
@@ -157,24 +178,29 @@ export default function GlobalChat() {
     e.preventDefault();
     if (!input.trim() && attachments.length === 0) return;
 
-    let payload = {
-      sender: { _id: user._id || user.id, name: user.name, role: user.role },
+    const payload = {
+      sender: { 
+        _id: currentUserId, 
+        name: user?.name || 'Officer', 
+        role: user?.role || 'officer', 
+        avatar: user?.avatar || null 
+      },
       createdAt: new Date()
     };
     
-    let messageObj = { ...payload };
+    const messageObj = { ...payload };
 
     try {
-      if (selectedChat.type === 'global') {
+      if (selectedChat?.type === 'global') {
         const formData = new FormData();
         if (input.trim()) formData.append('content', input);
         attachments.forEach(file => formData.append('attachments', file));
         
         messageObj.content = input;
         
-        socketRef.current.emit('global-message', messageObj);
+        socketRef.current?.emit('global-message', messageObj);
         await chatsAPI.sendGlobal(formData);
-      } else {
+      } else if (selectedChat?.id) {
         const key = getEncryptionKey(selectedChat.id);
         const iv = CryptoJS.lib.WordArray.random(16).toString(CryptoJS.enc.Hex);
         const encrypted = input.trim() ? CryptoJS.AES.encrypt(input, CryptoJS.enc.Utf8.parse(key), {
@@ -192,7 +218,7 @@ export default function GlobalChat() {
         messageObj.content = encrypted;
         messageObj.iv = iv;
 
-        socketRef.current.emit('private-message', messageObj);
+        socketRef.current?.emit('private-message', messageObj);
         await chatsAPI.sendPrivate(selectedChat.id, formData);
         
         setLastMessageTimes(prev => ({
@@ -202,10 +228,17 @@ export default function GlobalChat() {
       }
       setInput('');
       setAttachments([]);
-    } catch (err) { toast.error('Send failed'); }
+    } catch (err) { 
+      toast.error('Send failed'); 
+    }
   };
 
-  const filteredUsers = users.filter(u => u.name.toLowerCase().includes(search.toLowerCase()));
+  const filteredUsers = (users || []).filter(u => 
+    u && 
+    u._id?.toString() !== currentUserId && 
+    (u.name || '').toLowerCase().includes(search.toLowerCase())
+  );
+
   const sortedUsers = [...filteredUsers].sort((a, b) => {
     const timeA = lastMessageTimes[a._id] || 0;
     const timeB = lastMessageTimes[b._id] || 0;
@@ -262,8 +295,8 @@ export default function GlobalChat() {
               style={{
                 padding: '16px 24px',
                 cursor: 'pointer',
-                background: selectedChat.id === 'global' ? 'rgba(0,180,255,0.1)' : 'transparent',
-                borderLeft: selectedChat.id === 'global' ? '4px solid #00B4FF' : '4px solid transparent',
+                background: selectedChat?.id === 'global' ? 'rgba(0,180,255,0.1)' : 'transparent',
+                borderLeft: selectedChat?.id === 'global' ? '4px solid #00B4FF' : '4px solid transparent',
                 transition: '0.2s'
               }}
             >
@@ -279,14 +312,14 @@ export default function GlobalChat() {
               <div 
                 key={u._id}
                 onClick={() => {
-                  setSelectedChat({ id: u._id, name: u.name, type: 'private', role: u.role });
+                  setSelectedChat({ id: u._id, name: u.name || 'Officer', type: 'private', role: u.role || 'officer', avatar: u.avatar });
                   setUnreadCounts(prev => ({ ...prev, [u._id]: 0 }));
                 }}
                 style={{
                   padding: '16px 24px',
                   cursor: 'pointer',
-                  background: selectedChat.id === u._id ? 'rgba(255,255,255,0.03)' : 'transparent',
-                  borderLeft: selectedChat.id === u._id ? `4px solid ${getRoleColor(u.role)}` : '4px solid transparent',
+                  background: selectedChat?.id === u._id ? 'rgba(255,255,255,0.03)' : 'transparent',
+                  borderLeft: selectedChat?.id === u._id ? `4px solid ${getRoleColor(u.role)}` : '4px solid transparent',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '12px'
@@ -294,11 +327,21 @@ export default function GlobalChat() {
               >
                 <div style={{ 
                   width: '40px', height: '40px', borderRadius: '50%', 
-                  background: `linear-gradient(135deg, ${getRoleColor(u.role)}22, ${getRoleColor(u.role)}44)`,
+                  background: getAvatarGradient(u.role, u.email === 'pruthvishetty04@gmail.com'),
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '16px', border: `1px solid ${getRoleColor(u.role)}33`
+                  fontSize: '16px', border: `1px solid ${getRoleColor(u.role)}33`,
+                  overflow: 'hidden', flexShrink: 0
                 }}>
-                  {u.name.charAt(0)}
+                  {getAvatarUrl(u.avatar) ? (
+                    <img 
+                      src={getAvatarUrl(u.avatar)} 
+                      alt={u.name} 
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                    />
+                  ) : (
+                    getAvatarFallback(u.name, u.email === 'pruthvishetty04@gmail.com')
+                  )}
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: '600', color: '#E0E8FF', fontSize: '14px' }}>{u.name}</div>
@@ -339,9 +382,9 @@ export default function GlobalChat() {
               background: '#00ffaa', boxShadow: '0 0 10px #00ffaa' 
             }} />
             <div>
-              <div style={{ fontWeight: 'bold', color: '#fff', fontSize: '16px' }}>{selectedChat.name}</div>
-              <div style={{ fontSize: '11px', color: selectedChat.type === 'global' ? '#5A6480' : getRoleColor(selectedChat.role) }}>
-                {selectedChat.type === 'global' ? 'End-to-End Encrypted Node' : `${selectedChat.role.toUpperCase()} • Private Channel`}
+              <div style={{ fontWeight: 'bold', color: '#fff', fontSize: '16px' }}>{selectedChat?.name || 'Comms Channel'}</div>
+              <div style={{ fontSize: '11px', color: selectedChat?.type === 'global' ? '#5A6480' : getRoleColor(selectedChat?.role) }}>
+                {selectedChat?.type === 'global' ? 'End-to-End Encrypted Node' : `${(selectedChat?.role || 'OFFICER').toUpperCase()} • Private Channel`}
               </div>
             </div>
           </div>
@@ -359,10 +402,25 @@ export default function GlobalChat() {
               <div style={{ textAlign: 'center', marginTop: '100px', color: '#5A6480', fontSize: '12px' }}>DECRYPTING SECURE FEED...</div>
             ) : (
               messages.map((m, i) => {
-                const isMe = m.sender._id === (user._id || user.id);
+                if (!m) return null;
+                const senderId = (m.sender?._id || (typeof m.sender === 'string' ? m.sender : null))?.toString();
+                const isMe = Boolean(senderId && currentUserId && senderId === currentUserId);
+                const senderName = m.sender?.name || (isMe ? (user?.name || 'You') : 'Officer');
+                const senderRole = m.sender?.role || (isMe ? (user?.role || 'officer') : 'officer');
+                const senderAvatar = m.sender?.avatar || (isMe ? user?.avatar : null);
+
+                let formattedTime = '';
+                try {
+                  if (m.createdAt) {
+                    formattedTime = format(new Date(m.createdAt), 'HH:mm');
+                  }
+                } catch (e) {
+                  formattedTime = '';
+                }
+
                 return (
                   <motion.div
-                    key={i}
+                    key={m._id || i}
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     style={{
@@ -370,9 +428,36 @@ export default function GlobalChat() {
                       maxWidth: '65%'
                     }}
                   >
-                    {!isMe && selectedChat.type === 'global' && (
-                      <div style={{ fontSize: '10px', color: getRoleColor(m.sender.role), marginBottom: '4px', marginLeft: '4px' }}>
-                        {m.sender.name}
+                    {!isMe && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', marginLeft: '4px' }}>
+                        <div style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: '50%',
+                          background: getAvatarGradient(senderRole, m.sender?.email === 'pruthvishetty04@gmail.com'),
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '11px',
+                          overflow: 'hidden',
+                          fontWeight: 700,
+                          color: '#fff',
+                          flexShrink: 0
+                        }}>
+                          {getAvatarUrl(senderAvatar) ? (
+                            <img 
+                              src={getAvatarUrl(senderAvatar)} 
+                              alt="" 
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }} 
+                            />
+                          ) : (
+                            getAvatarFallback(senderName, m.sender?.email === 'pruthvishetty04@gmail.com')
+                          )}
+                        </div>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: getRoleColor(senderRole) }}>
+                          {senderName}
+                        </span>
                       </div>
                     )}
                     <div style={{
@@ -390,7 +475,7 @@ export default function GlobalChat() {
                           {m.attachments.map((att, idx) => (
                             <a 
                               key={idx} 
-                              href={att.url.startsWith('http') ? att.url : `${SOCKET_URL}${att.url}`} 
+                              href={att?.url?.startsWith('http') ? att.url : `${SOCKET_URL}${att?.url || ''}`} 
                               target="_blank" 
                               rel="noreferrer"
                               style={{
@@ -400,19 +485,21 @@ export default function GlobalChat() {
                                 textDecoration: 'underline'
                               }}
                             >
-                              📎 {att.filename}
+                              📎 {att?.filename || 'Attachment'}
                             </a>
                           ))}
                         </div>
                       )}
-                      <div style={{ 
-                        fontSize: '9px', 
-                        color: isMe ? 'rgba(255,255,255,0.5)' : '#5A6480', 
-                        textAlign: 'right', 
-                        marginTop: '4px' 
-                      }}>
-                        {format(new Date(m.createdAt), 'HH:mm')}
-                      </div>
+                      {formattedTime && (
+                        <div style={{ 
+                          fontSize: '9px', 
+                          color: isMe ? 'rgba(255,255,255,0.5)' : '#5A6480', 
+                          textAlign: 'right', 
+                          marginTop: '4px' 
+                        }}>
+                          {formattedTime}
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 );
@@ -472,10 +559,10 @@ export default function GlobalChat() {
                       width: '150px'
                     }}
                   >
-                    <div onClick={() => { fileInputRef.current.click(); setShowAttachMenu(false); }} style={{ cursor: 'pointer', padding: '8px 12px', color: '#fff', fontSize: '13px', borderRadius: '4px', background: 'rgba(255,255,255,0.05)' }}>📄 Document</div>
-                    <div onClick={() => { fileInputRef.current.click(); setShowAttachMenu(false); }} style={{ cursor: 'pointer', padding: '8px 12px', color: '#fff', fontSize: '13px', borderRadius: '4px', background: 'rgba(255,255,255,0.05)' }}>📷 Image / Video</div>
-                    <div onClick={() => { fileInputRef.current.click(); setShowAttachMenu(false); }} style={{ cursor: 'pointer', padding: '8px 12px', color: '#fff', fontSize: '13px', borderRadius: '4px', background: 'rgba(255,255,255,0.05)' }}>🎵 Voice Note</div>
-                    <div onClick={() => { fileInputRef.current.click(); setShowAttachMenu(false); }} style={{ cursor: 'pointer', padding: '8px 12px', color: '#fff', fontSize: '13px', borderRadius: '4px', background: 'rgba(255,255,255,0.05)' }}>👤 Contact</div>
+                    <div onClick={() => { fileInputRef.current?.click(); setShowAttachMenu(false); }} style={{ cursor: 'pointer', padding: '8px 12px', color: '#fff', fontSize: '13px', borderRadius: '4px', background: 'rgba(255,255,255,0.05)' }}>📄 Document</div>
+                    <div onClick={() => { fileInputRef.current?.click(); setShowAttachMenu(false); }} style={{ cursor: 'pointer', padding: '8px 12px', color: '#fff', fontSize: '13px', borderRadius: '4px', background: 'rgba(255,255,255,0.05)' }}>📷 Image / Video</div>
+                    <div onClick={() => { fileInputRef.current?.click(); setShowAttachMenu(false); }} style={{ cursor: 'pointer', padding: '8px 12px', color: '#fff', fontSize: '13px', borderRadius: '4px', background: 'rgba(255,255,255,0.05)' }}>🎵 Voice Note</div>
+                    <div onClick={() => { fileInputRef.current?.click(); setShowAttachMenu(false); }} style={{ cursor: 'pointer', padding: '8px 12px', color: '#fff', fontSize: '13px', borderRadius: '4px', background: 'rgba(255,255,255,0.05)' }}>👤 Contact</div>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -484,7 +571,7 @@ export default function GlobalChat() {
             <input type="file" multiple ref={fileInputRef} onChange={handleFileSelect} style={{ display: 'none' }} />
             <input 
               type="text" 
-              placeholder={selectedChat.type === 'global' ? "Broadcast to network..." : `Secure message to ${selectedChat.name}...`}
+              placeholder={selectedChat?.type === 'global' ? "Broadcast to network..." : `Secure message to ${selectedChat?.name || 'Officer'}...`}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               style={{

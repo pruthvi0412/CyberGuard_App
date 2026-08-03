@@ -66,6 +66,7 @@ export const authAPI = {
   logout: () => api.post('/auth/logout'),
   getMe: () => api.get('/auth/me'),
   updatePassword: (d) => api.patch('/auth/update-password', d),
+  verifyEmailOtp: (data) => api.post('/auth/verify-email-otp', data),
   // 2FA
   generate2FA: () => api.post('/auth/2fa/generate'),
   verify2FA: (token) => api.post('/auth/2fa/verify', { token }),
@@ -107,6 +108,12 @@ export const analyticsAPI = {
 // ── ADMIN API ─────────────────────────────────────────────────────────────────
 export const adminAPI = {
   getUsers: (p) => api.get('/admin/users', { params: p }),
+  getUserStats: () => api.get('/admin/users/stats'),
+  getUserDetails: (id) => api.get(`/admin/users/${id}`),
+  updateUser: (id, data) => api.patch(`/admin/users/${id}`, data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined),
+  resetUserPassword: (id, data) => api.post(`/admin/users/${id}/reset-password`, data),
+  createUser: (data) => api.post('/admin/users', data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined),
+  deleteUser: (id) => api.delete(`/admin/users/${id}`),
   updateRole: (id, role) => api.patch(`/admin/users/${id}/role`, { role }),
   toggleStatus: (id) => api.patch(`/admin/users/${id}/toggle-status`),
   assignOfficer: (id, oId) => api.patch(`/admin/complaints/${id}/assign`, { officerId: oId }),
