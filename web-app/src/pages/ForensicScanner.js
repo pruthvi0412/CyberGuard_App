@@ -4,11 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { complaintsAPI } from '../services/api';
 import toast from 'react-hot-toast';
-import { useLanguage } from '../context/LanguageContext';
+import useTranslationStore from '../hooks/useTranslationStore';
 
 export default function ForensicScanner() {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t } = useTranslationStore();
   const [activeTab, setActiveTab] = useState('text'); // 'text', 'url', 'ioc', 'radar'
   const [inputText, setInputText] = useState('');
   const [scanning, setScanning] = useState(false);
