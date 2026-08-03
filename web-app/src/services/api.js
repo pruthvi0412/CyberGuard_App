@@ -87,6 +87,7 @@ export const complaintsAPI = {
   getOne: (id) => api.get(`/complaints/${id}`),
   track: (id) => api.get(`/complaints/track/${id}`),
   publicSearch: (q) => api.get('/complaints/public/search', { params: { q } }),
+  analyze: (text) => api.post('/complaints/analyze', { text }),
   updateStatus: (id, d) => api.patch(`/complaints/${id}/status`, d),
   delete: (id) => api.delete(`/complaints/${id}`),
   analyze: (text) => api.post('/complaints/analyze', { text }),

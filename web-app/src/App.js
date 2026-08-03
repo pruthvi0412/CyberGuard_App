@@ -33,6 +33,7 @@ import Feedback from './pages/Feedback';
 import FAQ from './pages/FAQ';
 import AdminSafety from './pages/AdminSafety';
 import Learn from './pages/Learn';
+import ForensicScanner from './pages/ForensicScanner';
 
 import OfficerDashboard from './pages/OfficerDashboard';
 import ComplaintDetails from './pages/ComplaintDetails';
@@ -222,6 +223,7 @@ export default function App() {
         
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/learn" element={<ProtectedRoute><Learn /></ProtectedRoute>} />
+        <Route path="/forensic-scanner" element={<ProtectedRoute><ForensicScanner /></ProtectedRoute>} />
         <Route path="/suspect-search" element={<ProtectedRoute><SuspectSearch /></ProtectedRoute>} />
         <Route path="/feedback" element={<Feedback />} />
         <Route path="/faq" element={<FAQ />} />

@@ -164,7 +164,11 @@ export default function SecureChat({ complaintId }) {
           </div>
         ) : (
           messages.map((m, i) => {
-            const isMe = m.sender._id === (user._id || user.id);
+            const senderId = (m.sender?._id || (typeof m.sender === 'string' ? m.sender : m.sender?.id))?.toString();
+            const currentUserId = (user?._id || user?.id)?.toString();
+            const isMe = Boolean(senderId && currentUserId && senderId === currentUserId);
+            const senderName = m.sender?.name || (isMe ? 'You' : 'Officer');
+            const senderRole = m.sender?.role ? m.sender.role.toUpperCase() : 'OFFICER';
             return (
               <motion.div
                 key={i}
@@ -177,7 +181,7 @@ export default function SecureChat({ complaintId }) {
               >
                 {!isMe && (
                   <div style={{ fontSize: '10px', color: '#8892B0', marginBottom: '4px', marginLeft: '4px' }}>
-                    {m.sender.name} ({m.sender.role.toUpperCase()})
+                    {senderName} ({senderRole})
                   </div>
                 )}
                 <div style={{

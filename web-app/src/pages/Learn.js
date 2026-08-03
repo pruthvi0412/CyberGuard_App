@@ -911,48 +911,99 @@ export default function Learn() {
           <div style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(2, 6, 10, 0.97)',
+            background: 'rgba(2, 6, 10, 0.96)',
             backdropFilter: 'blur(40px)',
             zIndex: 99999,
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'flex-start',
             justifyContent: 'center',
-            padding: 20,
+            padding: '50px 20px 60px 20px',
             overflowY: 'auto'
           }}>
+            {/* Prominent Floating Close Button (Top Right of Screen) */}
+            <button
+              onClick={() => setShowCertModal(false)}
+              aria-label="Close certificate"
+              style={{
+                position: 'fixed',
+                top: 24,
+                right: 28,
+                background: 'rgba(255, 59, 48, 0.25)',
+                border: '2px solid rgba(255, 59, 48, 0.8)',
+                color: '#FF3B30',
+                borderRadius: '12px',
+                padding: '10px 18px',
+                cursor: 'pointer',
+                fontSize: 13,
+                fontWeight: 800,
+                zIndex: 100002,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                boxShadow: '0 0 25px rgba(255, 59, 48, 0.4), 0 4px 12px rgba(0,0,0,0.6)',
+                backdropFilter: 'blur(12px)',
+                transition: 'all 0.2s ease',
+                fontFamily: 'Orbitron, monospace',
+                letterSpacing: '1px'
+              }}
+              onMouseOver={e => {
+                e.currentTarget.style.background = '#FF3B30';
+                e.currentTarget.style.color = '#FFFFFF';
+                e.currentTarget.style.transform = 'scale(1.05)';
+              }}
+              onMouseOut={e => {
+                e.currentTarget.style.background = 'rgba(255, 59, 48, 0.25)';
+                e.currentTarget.style.color = '#FF3B30';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+            >
+              <span style={{ fontSize: 16, lineHeight: 1 }}>✕</span>
+              <span>CLOSE</span>
+            </button>
+
             <motion.div
-              initial={{ scale: 0.85, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.85, opacity: 0 }}
-              transition={{ type: 'spring', duration: 0.5 }}
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              transition={{ type: 'spring', duration: 0.4 }}
               style={{
                 width: '100%',
                 maxWidth: 900,
-                position: 'relative'
+                position: 'relative',
+                margin: 'auto 0'
               }}
             >
-              {/* Close Button */}
+              {/* Secondary Corner Close Button */}
               <button
                 onClick={() => setShowCertModal(false)}
                 className="cert-close-btn"
+                aria-label="Close"
                 style={{
                   position: 'absolute',
-                  top: -16,
-                  right: -16,
+                  top: 14,
+                  right: 14,
                   background: 'rgba(255,59,48,0.2)',
-                  border: '2px solid rgba(255,59,48,0.5)',
+                  border: '1.5px solid rgba(255,59,48,0.6)',
                   color: '#FF3B30',
                   borderRadius: '50%',
-                  width: 40,
-                  height: 40,
+                  width: 36,
+                  height: 36,
                   cursor: 'pointer',
-                  fontSize: 18,
+                  fontSize: 16,
                   fontWeight: 800,
-                  zIndex: 10,
+                  zIndex: 20,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  transition: 'all 0.3s ease'
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseOver={e => {
+                  e.currentTarget.style.background = 'rgba(255,59,48,0.8)';
+                  e.currentTarget.style.color = '#fff';
+                }}
+                onMouseOut={e => {
+                  e.currentTarget.style.background = 'rgba(255,59,48,0.2)';
+                  e.currentTarget.style.color = '#FF3B30';
                 }}
               >
                 ✕
@@ -1323,6 +1374,27 @@ export default function Learn() {
                   onMouseOut={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.transform = 'translateY(0)'; }}
                 >
                   🔗 Share Badge
+                </button>
+                <button
+                  onClick={() => setShowCertModal(false)}
+                  style={{
+                    padding: '14px 28px',
+                    borderRadius: '12px',
+                    background: 'rgba(255,59,48,0.12)',
+                    border: '1px solid rgba(255,59,48,0.4)',
+                    color: '#FF3B30',
+                    fontWeight: 700,
+                    fontSize: 14,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseOver={e => { e.currentTarget.style.background = 'rgba(255,59,48,0.25)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                  onMouseOut={e => { e.currentTarget.style.background = 'rgba(255,59,48,0.12)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                >
+                  ✕ Close Window
                 </button>
               </div>
             </motion.div>
