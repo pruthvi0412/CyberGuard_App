@@ -58,13 +58,14 @@ const seedAdmin = async () => {
   
   if (!adminExists) {
     logger.info('Seeding admin user...');
+    
     await User.create({
       name: 'System Administrator',
       email: process.env.ADMIN_EMAIL || 'admin@cybercrime.gov',
       password: process.env.ADMIN_PASSWORD || 'Admin@123456',
       role: 'admin',
       isVerified: true,
-      phone: '0000000000',
+      phone: '9000000000',   // placeholder; real admin can update via profile
     });
     logger.info('✅ Admin user seeded successfully');
   }

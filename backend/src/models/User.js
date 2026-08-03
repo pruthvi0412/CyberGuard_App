@@ -52,6 +52,7 @@ const userSchema = new mongoose.Schema({
   resetPasswordExpires: { type: Date, select: false },
   emailOtp: { type: String, select: false },
   emailOtpExpires: { type: Date, select: false },
+  otpAttempts: { type: Number, default: 0, select: false },
   faceDescriptor: { type: [Number], select: false }, // 128-D Face ID Hash
   notificationTokens: [{ type: String }], // FCM tokens for mobile
 }, {

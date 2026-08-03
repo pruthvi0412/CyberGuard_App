@@ -4,6 +4,9 @@ const router = express.Router();
 
 const authController = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
+const rateLimit = require('express-rate-limit');
+
+// Rate limiter specifically for OTP verification removed as OTP flow is disabled.
 
 // ---------------- VALIDATIONS ----------------
 const loginValidation = [
@@ -46,7 +49,7 @@ const safe = (fn) => (req, res, next) => {
 // ---------------- ROUTES ----------------
 router.post('/register', registerValidation, safe(authController.register));
 router.post('/login', loginValidation, safe(authController.login));
-router.post('/verify-email-otp', safe(authController.verifyEmailOtp));
+// router.post('/verify-email-otp', otpVerifyLimiter, safe(authController.verifyEmailOtp));
 
 router.post('/refresh', safe(authController.refreshToken));
 router.get('/me', protect, safe(authController.getMe));
@@ -57,10 +60,10 @@ router.patch('/update-password', protect, safe(authController.updatePassword));
 router.post('/enroll-face', protect, safe(authController.enrollFace));
 router.post('/verify-face', protect, safe(authController.verifyFace));
 
-// 2FA Routes
-router.post('/2fa/generate', protect, safe(authController.generate2FA));
-router.post('/2fa/verify', protect, safe(authController.verify2FA));
-router.post('/2fa/login', safe(authController.login2FA));
-router.post('/2fa/disable', protect, safe(authController.disable2FA));
+// 2FA Routes (Disabled per product decision)
+// router.post('/2fa/generate', protect, safe(authController.generate2FA));
+// router.post('/2fa/verify', protect, safe(authController.verify2FA));
+// router.post('/2fa/login', safe(authController.login2FA));
+// router.post('/2fa/disable', protect, safe(authController.disable2FA));
 
 module.exports = router;

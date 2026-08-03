@@ -17,200 +17,88 @@ export default function Navbar() {
   const containerRef = useRef(null);
   const helpBtnRef = useRef(null);
   const [showScanner, setShowScanner] = useState(false);
-  const [showHelpMenu, setShowHelpMenu] = useState(false);
-  const [helpMenuPos, setHelpMenuPos] = useState({ top: 0, left: 0 });
 
-  const toggleHelpMenu = () => {
-    if (!showHelpMenu && helpBtnRef.current) {
-      const rect = helpBtnRef.current.getBoundingClientRect();
-      setHelpMenuPos({ top: rect.bottom + 10, left: rect.left + rect.width / 2 });
-    }
-    setShowHelpMenu(!showHelpMenu);
-  };
+            {/* USER role navigation */}
+            {!isAdmin() && !isOfficer() && (
+              <>
+                {navLink('/dashboard', 'MY COMPLAINTS', 'PERSONAL')}
+                {navLink('/community', 'COMMUNITY', 'BROWSE')}
+                {navLink('/submit', 'REPORT', 'ACTION')}
+                <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.1)', margin: '0 10px' }} />
+                {navLink('/scam-search', 'SCAM SEARCH', 'INTEL')}
+                {navLink('/forensic-scanner', 'NEURAL SCAN', 'INTEL')}
+                {navLink('/leak-monitor', 'LEAK MONITOR', 'INTEL')}
+                {navLink('/threat-map', 'HOTSPOTS', 'INTEL')}
+                <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.1)', margin: '0 10px' }} />
+                {navLink('/chat', 'COMMS', 'NETWORK')}
+              </>
+            )}
 
-  const scroll = (direction) => {
-    if (containerRef.current) {
-      const { scrollLeft, clientWidth } = containerRef.current;
-      const scrollTo = direction === 'left' 
-        ? scrollLeft - clientWidth * 0.5 
-        : scrollLeft + clientWidth * 0.5;
-      
-      containerRef.current.scrollTo({
-        left: scrollTo,
-        behavior: 'smooth'
-      });
-    }
-  };
-
-  const navLink = (to, label, category) => (
-    <Link to={to} style={{
-      color: location.pathname === to ? '#00B4FF' : '#8892B0',
-      textDecoration: 'none', 
-      fontSize: 11, 
-      fontWeight: 700,
-      fontFamily: 'Orbitron, monospace',
-      letterSpacing: '1px',
-      whiteSpace: 'nowrap',
-      padding: '10px 20px',
-      borderRadius: '8px',
-      background: location.pathname === to ? 'rgba(0,180,255,0.1)' : 'rgba(255,255,255,0.03)',
-      border: location.pathname === to ? '1px solid rgba(0,180,255,0.4)' : '1px solid rgba(255,255,255,0.05)',
-      transition: '0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      gap: '4px',
-      minWidth: 'fit-content'
-    }}>
-      <span style={{ fontSize: '8px', opacity: 0.6, color: '#00B4FF', textTransform: 'uppercase' }}>{category}</span>
-      {label}
-    </Link>
-  );
-
-  const handleLogout = async () => {
-    await logout();
-    toast.success('Logged out successfully');
-    navigate('/');
-  };
-
-  return (
-    <>
-      <AnimatePresence>
-        {showScanner && (
-          <DeveloperAccessScanner 
-            onClose={() => setShowScanner(false)}
-            onVerified={() => {
-              setShowScanner(false);
-              navigate('/developer');
-            }}
-          />
-        )}
-      </AnimatePresence>
-
-    <nav style={{
-      position: 'sticky', top: 0, zIndex: 100,
-      background: 'rgba(3, 10, 15, 0.98)', 
-      backdropFilter: 'blur(40px)',
-      borderBottom: '1px solid rgba(0, 180, 255, 0.25)',
-      padding: '0 24px', display: 'flex', alignItems: 'center',
-      justifyContent: 'space-between', height: 85,
-      boxShadow: '0 10px 40px rgba(0, 0, 0, 0.9)',
-      userSelect: 'none'
-    }}>
-      {/* Brand */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
-        <motion.div 
-          onClick={() => {
-            if (user?.email === 'pruthvishetty04@gmail.com') {
-              setShowScanner(true);
-            } else {
-              navigate('/');
-            }
-          }}
-          whileHover={{ scale: 1.1 }}
-          style={{ 
-            width: 42, height: 42, 
-            borderRadius: '10px', 
-            overflow: 'hidden',
-            border: '2px solid #00B4FF',
-            boxShadow: '0 0 15px rgba(0,180,255,0.4)',
-            background: 'rgba(0,180,255,0.1)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer'
-          }}
-        >
-          {getAvatarUrl(user?.avatar, user?.updatedAt) ? (
-            <img 
-              src={getAvatarUrl(user?.avatar, user?.updatedAt)} 
-              alt={user?.name || 'User'} 
-              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-            />
-          ) : (
-            <div style={{ color: '#00B4FF', fontWeight: 900, fontSize: 22, fontFamily: 'Orbitron, monospace' }}>
-              {user?.name?.[0] || 'C'}
-            </div>
-          )}
-        </motion.div>
-        
-        <Link to="/" style={{ textDecoration: 'none' }}>
-          <span style={{ fontFamily: 'Orbitron,monospace', fontSize: 16, color: '#fff', fontWeight: 800, letterSpacing: '3px' }}>
-            CYBERGUARD
-          </span>
-        </Link>
-      </div>
-
-      {/* High-Performance Navigation Dock */}
-      <div style={{ 
-        flex: 1, 
-        display: 'flex', 
-        alignItems: 'center', 
-        margin: '0 20px', 
-        position: 'relative',
-        background: 'rgba(255,255,255,0.02)',
-        borderRadius: '12px',
-        padding: '6px',
-        border: '1px solid rgba(255,255,255,0.05)',
-        minWidth: 0,
-        overflow: 'hidden'
-      }}>
-        {/* Left Arrow */}
-        <motion.button 
-          whileHover={{ scale: 1.1, backgroundColor: 'rgba(0,180,255,0.3)' }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => scroll('left')}
-          style={{
-            background: 'rgba(3,10,15,0.8)', border: '1px solid rgba(0,180,255,0.3)',
-            borderRadius: '8px', width: 32, height: 48, color: '#00B4FF', 
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 10, position: 'absolute', left: 0, fontSize: 18, boxShadow: '0 0 20px rgba(0,0,0,0.5)'
-          }}
-        >
-          ❮
-        </motion.button>
-
-        <div 
-          ref={containerRef}
-          style={{ 
-            flex: 1, 
-            overflowX: 'scroll', 
-            overflowY: 'hidden',
-            display: 'flex',
-            alignItems: 'center',
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none',
-            scrollBehavior: 'smooth',
-            padding: '0 36px',
-            gap: 12
-          }}
-        >
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center', width: 'max-content' }}>
-            {navLink('/dashboard', t('NAVBAR.COMPLAINTS', 'COMPLAINTS'), t('NAVBAR.CORE', 'CORE'))}
-            {navLink('/submit', t('NAVBAR.REPORT', 'REPORT'), t('NAVBAR.CORE', 'CORE'))}
-            
-            <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.1)', margin: '0 10px' }} />
-            
-            {navLink('/scam-search', t('NAVBAR.SCAM_SEARCH', 'SCAM SEARCH'), t('NAVBAR.INTEL', 'INTEL'))}
-            {navLink('/suspect-search', t('NAVBAR.SUSPECT_SEARCH', 'SUSPECT SEARCH'), t('NAVBAR.INTEL', 'INTEL'))}
-            {navLink('/leak-monitor', t('NAVBAR.LEAK_MONITOR', 'LEAK MONITOR'), t('NAVBAR.INTEL', 'INTEL'))}
-            {navLink('/threat-map', t('NAVBAR.HOTSPOTS', 'HOTSPOTS'), t('NAVBAR.INTEL', 'INTEL'))}
-
-            <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.1)', margin: '0 10px' }} />
-
+            {/* OFFICER role navigation */}
             {isOfficer() && (
               <>
+
+            {/* USER role navigation */}
+            {!isAdmin() && !isOfficer() && (
+              <>
+                {navLink('/dashboard', t('NAVBAR.COMPLAINTS', 'MY COMPLAINTS'), t('NAVBAR.PERSONAL', 'PERSONAL'))}
+                {navLink('/community', t('NAVBAR.COMMUNITY', 'COMMUNITY'), t('NAVBAR.BROWSE', 'BROWSE'))}
+                {navLink('/submit', t('NAVBAR.REPORT', 'REPORT'), t('NAVBAR.ACTION', 'ACTION'))}
+                <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.1)', margin: '0 10px' }} />
+                {navLink('/scam-search', t('NAVBAR.SCAM_SEARCH', 'SCAM SEARCH'), t('NAVBAR.INTEL', 'INTEL'))}
+                {navLink('/suspect-search', t('NAVBAR.SUSPECT_SEARCH', 'SUSPECT SEARCH'), t('NAVBAR.INTEL', 'INTEL'))}
+                {navLink('/forensic-scanner', t('NAVBAR.NEURAL_SCAN', 'NEURAL SCAN'), t('NAVBAR.INTEL', 'INTEL'))}
+                {navLink('/leak-monitor', t('NAVBAR.LEAK_MONITOR', 'LEAK MONITOR'), t('NAVBAR.INTEL', 'INTEL'))}
+                {navLink('/threat-map', t('NAVBAR.HOTSPOTS', 'HOTSPOTS'), t('NAVBAR.INTEL', 'INTEL'))}
+                <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.1)', margin: '0 10px' }} />
+                {navLink('/chat', t('NAVBAR.COMMS', 'COMMS'), t('NAVBAR.NETWORK', 'NETWORK'))}
+                {navLink('/learn', t('NAVBAR.LEARN', 'LEARN'), t('NAVBAR.AWARENESS', 'AWARENESS'))}
+              </>
+            )}
+
+            {/* OFFICER role navigation */}
+            {isOfficer() && (
+              <>
+                {navLink('/dashboard', t('NAVBAR.COMPLAINTS', 'COMPLAINTS'), t('NAVBAR.CORE', 'CORE'))}
+                {navLink('/submit', t('NAVBAR.REPORT', 'REPORT'), t('NAVBAR.ACTION', 'ACTION'))}
+                <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.1)', margin: '0 10px' }} />
                 {navLink('/admin', t('NAVBAR.COMMAND_CENTER', 'COMMAND CENTER'), t('NAVBAR.OFFICER', 'OFFICER'))}
-                {isAdmin() && navLink('/admin/info', t('NAVBAR.INFO', 'INFO'), t('NAVBAR.ADMIN', 'ADMIN'))}
                 {navLink('/admin/safety', t('NAVBAR.SAFETY', 'SAFETY'), t('NAVBAR.OFFICER', 'OFFICER'))}
                 {navLink('/admin/database', t('NAVBAR.DATABASE', 'DATABASE'), t('NAVBAR.OFFICER', 'OFFICER'))}
                 {navLink('/admin/link-analysis', t('NAVBAR.FORENSICS', 'FORENSICS'), t('NAVBAR.OFFICER', 'OFFICER'))}
                 {navLink('/admin/map', t('NAVBAR.MAP', 'MAP'), t('NAVBAR.OFFICER', 'OFFICER'))}
+                <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.1)', margin: '0 10px' }} />
+                {navLink('/scam-search', t('NAVBAR.SCAM_SEARCH', 'SCAM SEARCH'), t('NAVBAR.INTEL', 'INTEL'))}
+                {navLink('/suspect-search', t('NAVBAR.SUSPECT_SEARCH', 'SUSPECT SEARCH'), t('NAVBAR.INTEL', 'INTEL'))}
+                {navLink('/forensic-scanner', t('NAVBAR.NEURAL_SCAN', 'NEURAL SCAN'), t('NAVBAR.INTEL', 'INTEL'))}
+                {navLink('/chat', t('NAVBAR.COMMS', 'COMMS'), t('NAVBAR.NETWORK', 'NETWORK'))}
+                {navLink('/learn', t('NAVBAR.LEARN', 'LEARN'), t('NAVBAR.AWARENESS', 'AWARENESS'))}
               </>
             )}
 
-            {navLink('/chat', t('NAVBAR.COMMS', 'COMMS'), t('NAVBAR.NETWORK', 'NETWORK'))}
-            {isAdmin() && navLink('/admin/mails', t('NAVBAR.MAIL', 'MAIL'), t('NAVBAR.NETWORK', 'NETWORK'))}
-            {navLink('/learn', t('NAVBAR.LEARN', 'LEARN'), t('NAVBAR.AWARENESS', 'AWARENESS'))}
+            {/* ADMIN role navigation */}
+            {isAdmin() && (
+              <>
+                {navLink('/dashboard', t('NAVBAR.ALL_COMPLAINTS', 'ALL COMPLAINTS'), t('NAVBAR.ADMIN', 'ADMIN'))}
+                {navLink('/submit', t('NAVBAR.REPORT', 'REPORT'), t('NAVBAR.ACTION', 'ACTION'))}
+                <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.1)', margin: '0 10px' }} />
+                {navLink('/admin', t('NAVBAR.COMMAND_CENTER', 'COMMAND CENTER'), t('NAVBAR.SYSTEM', 'SYSTEM'))}
+                {navLink('/admin/users', t('NAVBAR.ACCOUNTS', 'ACCOUNTS'), t('NAVBAR.SYSTEM', 'SYSTEM'))}
+                {navLink('/admin/mails', t('NAVBAR.MAIL', 'MAIL'), t('NAVBAR.SYSTEM', 'SYSTEM'))}
+                {navLink('/admin/database', t('NAVBAR.DATABASE', 'DATABASE'), t('NAVBAR.SYSTEM', 'SYSTEM'))}
+                {navLink('/admin/link-analysis', t('NAVBAR.FORENSICS', 'FORENSICS'), t('NAVBAR.SYSTEM', 'SYSTEM'))}
+                {navLink('/admin/map', t('NAVBAR.MAP', 'MAP'), t('NAVBAR.SYSTEM', 'SYSTEM'))}
+                {navLink('/admin/info', t('NAVBAR.INFO', 'INFO'), t('NAVBAR.SYSTEM', 'SYSTEM'))}
+                {navLink('/admin/safety', t('NAVBAR.SAFETY', 'SAFETY'), t('NAVBAR.SYSTEM', 'SYSTEM'))}
+                <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.1)', margin: '0 10px' }} />
+                {navLink('/scam-search', t('NAVBAR.SCAM_SEARCH', 'SCAM SEARCH'), t('NAVBAR.INTEL', 'INTEL'))}
+                {navLink('/suspect-search', t('NAVBAR.SUSPECT_SEARCH', 'SUSPECT SEARCH'), t('NAVBAR.INTEL', 'INTEL'))}
+                {navLink('/forensic-scanner', t('NAVBAR.NEURAL_SCAN', 'NEURAL SCAN'), t('NAVBAR.INTEL', 'INTEL'))}
+                {navLink('/leak-monitor', t('NAVBAR.LEAK_MONITOR', 'LEAK MONITOR'), t('NAVBAR.INTEL', 'INTEL'))}
+                {navLink('/chat', t('NAVBAR.COMMS', 'COMMS'), t('NAVBAR.NETWORK', 'NETWORK'))}
+                {navLink('/learn', t('NAVBAR.LEARN', 'LEARN'), t('NAVBAR.AWARENESS', 'AWARENESS'))}
+              </>
+            )}
 
             <div
               ref={helpBtnRef}
@@ -348,8 +236,54 @@ export default function Navbar() {
         </motion.div>
 
         <NotificationCenter />
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '20px' }}>
+          
+          {/* User Identity Display */}
+          {user && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', marginRight: '5px' }}>
+              <span style={{ color: '#E2E8F0', fontSize: '13px', fontWeight: '500', letterSpacing: '0.5px' }}>
+                {user.name || user.email}
+              </span>
+              <span style={{
+                marginTop: '4px',
+                fontSize: '9px',
+                fontWeight: '900',
+                fontFamily: 'Orbitron, monospace',
+                letterSpacing: '1.5px',
+                padding: '3px 8px',
+                borderRadius: '6px',
+                backgroundColor: user.role === 'admin' ? 'rgba(255,82,82,0.15)' : user.role === 'officer' ? 'rgba(255,167,38,0.15)' : 'rgba(0,180,255,0.15)',
+                color: user.role === 'admin' ? '#FF5252' : user.role === 'officer' ? '#FFA726' : '#00B4FF',
+                border: `1px solid ${user.role === 'admin' ? 'rgba(255,82,82,0.4)' : user.role === 'officer' ? 'rgba(255,167,38,0.4)' : 'rgba(0,180,255,0.4)'}`
+              }}>
+                {user.role ? user.role.toUpperCase() : 'USER'}
+              </span>
+            </div>
+          )}
 
-        <button onClick={handleLogout} 
+          <div 
+            onClick={() => navigate('/settings')}
+            style={{ 
+              width: 42, height: 42, borderRadius: '50%', 
+              border: '2px solid #00B4FF',
+              padding: '2px',
+              overflow: 'hidden', cursor: 'pointer',
+              background: 'rgba(0,180,255,0.1)',
+              boxShadow: '0 0 10px rgba(0,180,255,0.2)'
+            }}
+          >
+            {user?.avatar ? (
+              <img src={user.avatar.startsWith('http') ? user.avatar : `http://localhost:5002${user.avatar}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+            ) : (
+              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#00B4FF', fontSize: 18, fontWeight: 'bold' }}>
+                {user?.name?.[0]}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <button onClick={() => setShowLogoutConfirm(true)} 
           style={{ 
             background: 'linear-gradient(135deg, rgba(255,82,82,0.15), rgba(255,82,82,0.05))',
             border: '1px solid rgba(255,82,82,0.4)',

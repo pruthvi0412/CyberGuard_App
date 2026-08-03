@@ -29,7 +29,7 @@ async function generateEmailContent(prompt) {
       logger.warn('GEMINI_API_KEY not configured. Falling back to default email template.');
       return null;
     }
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' });
     const result = await model.generateContent(prompt);
     const text = result.response.text();
     return text;
@@ -255,5 +255,53 @@ exports.sendLoginOtpEmail = async (user, otp) => {
     }
   } catch (error) {
     logger.error(`Failed to send login OTP email to ${user.email}: ${error.message}`);
+  }
+};
+
+/**
+ * Send a welcome email to a newly registered user
+ */
+exports.sendWelcomeEmail = async (user) => {
+  if (!user || !user.email) return;
+
+  try {
+    let emailSubject = `Welcome to CyberGuard, ${user.name}!`;
+    let emailBody = '';
+
+    const prompt = `
+      You are the CyberGuard System Greeter.
+      A new user named "${user.name}" has just registered.
+      Write a short, welcoming email thanking them for registering with CyberGuard.
+      Keep it professional, assuring them that their cybercrime complaints will be handled securely.
+      Just provide the raw text of the email body.
+    `;
+
+    const generatedBody = await generateEmailContent(prompt);
+
+    if (generatedBody) {
+      emailBody = generatedBody;
+    } else {
+      emailBody = `Dear ${user.name},\n\nWelcome to CyberGuard! We are glad to have you on board. Our platform ensures that your cybercrime complaints are handled securely and efficiently.\n\nCyberGuard Automated System`;
+    }
+
+    await MailLog.create({
+      recipient: user.email,
+      subject: emailSubject,
+      body: emailBody,
+    });
+
+    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+      await transporter.sendMail({
+        from: `"CyberGuard Welcome" <${process.env.SMTP_USER}>`,
+        to: user.email,
+        subject: emailSubject,
+        text: emailBody,
+      });
+      logger.info(`Welcome email sent to ${user.email}`);
+    } else {
+      logger.warn(`SMTP credentials not configured. Mail logged but not sent to ${user.email} (Welcome Email)`);
+    }
+  } catch (error) {
+    logger.error(`Failed to send welcome email to ${user.email}: ${error.message}`);
   }
 };

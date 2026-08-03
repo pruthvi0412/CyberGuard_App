@@ -47,17 +47,22 @@ export default function SecureChat({ complaintId }) {
   };
 
   useEffect(() => {
+    if (!complaintId) {
+      setLoading(false);
+      return;
+    }
+
     // 1. Fetch History
     const fetchHistory = async () => {
       try {
         const { data } = await chatsAPI.getMessages(complaintId);
-        const decryptedMessages = data.data.messages.map(m => ({
+        const decryptedMessages = (data.data?.messages || []).map(m => ({
           ...m,
           decryptedContent: decrypt(m.content, m.iv)
         }));
         setMessages(decryptedMessages);
       } catch (err) {
-        toast.error('Failed to load chat history');
+        console.error('Chat history fetch error:', err);
       } finally {
         setLoading(false);
       }

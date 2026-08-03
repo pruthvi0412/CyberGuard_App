@@ -28,12 +28,18 @@ export default function Dashboard() {
 
   const fetchComplaints = useCallback(async () => {
     try {
-      const { data } = await complaintsAPI.getAll({ 
+      const params = { 
         status: statusFilter || undefined, 
         search: search || undefined,
         page: page,
         limit: 10
-      });
+      };
+      // User role: pass scope=own to see only their own complaints (MY COMPLAINTS)
+      // Admin/Officer: no scope needed, they already see all
+      if (user?.role === 'user') {
+        params.scope = 'own';
+      }
+      const { data } = await complaintsAPI.getAll(params);
       setComplaints(data.data.complaints);
       
       const s = data.data.stats || {};
@@ -46,7 +52,7 @@ export default function Dashboard() {
       setPagination(data.data.pagination);
     } catch { toast.error('Failed to load complaints'); }
     finally  { setLoading(false); }
-  }, [statusFilter, search, page]);
+  }, [statusFilter, search, page, user?.role]);
 
   useEffect(() => { fetchComplaints(); }, [fetchComplaints]);
 
@@ -100,9 +106,9 @@ export default function Dashboard() {
             WebkitTextFillColor: 'transparent',
             letterSpacing: '-2.5px',
             margin: '0 0 12px 0'
-          }}>{t('DASHBOARD.MY_COMPLAINTS', 'My Complaints')}</h1>
+          }}>{user?.role === 'admin' || user?.role === 'officer' ? t('DASHBOARD.ALL_COMPLAINTS', 'All Complaints') : t('DASHBOARD.MY_COMPLAINTS', 'My Complaints')}</h1>
           <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '18px', fontWeight: 500 }}>
-            {t('DASHBOARD.SUBTITLE', 'Monitor and regulate your secure filings within the CyberGuard network.')}
+            {user?.role === 'admin' || user?.role === 'officer' ? t('DASHBOARD.SUBTITLE_ADMIN', 'Full system access — all complaints across all users.') : t('DASHBOARD.SUBTITLE', 'Monitor and regulate your secure filings within the CyberGuard network.')}
           </p>
         </div>
 
@@ -301,7 +307,20 @@ export default function Dashboard() {
             padding: 80 
           }}>
             <div style={{ fontSize: '64px', marginBottom: 24 }}>📭</div>
-            <p style={{ color: 'rgba(255,255,255,0.4)', marginBottom: 32, fontSize: '18px', fontWeight: 500 }}>No complaints detected in your clearance zone.</p>
+            <p style={{ color: 'rgba(255,255,255,0.4)', marginBottom: 16, fontSize: '18px', fontWeight: 500 }}>
+              {user?.role === 'user' ? "You haven't filed any complaints yet." : "No complaints found."}
+            </p>
+            {user?.role === 'user' && (
+              <p style={{ color: 'rgba(255,255,255,0.25)', marginBottom: 32, fontSize: '14px' }}>
+                Want to browse all reported incidents? Visit{' '}
+                <span 
+                  onClick={() => navigate('/community')} 
+                  style={{ color: '#A855F7', cursor: 'pointer', textDecoration: 'underline' }}
+                >
+                  Community Complaints
+                </span>.
+              </p>
+            )}
             <button className="liquid-btn-primary" onClick={() => navigate('/submit')}>FILE INITIAL REPORT</button>
           </div>
         ) : (
@@ -323,7 +342,7 @@ export default function Dashboard() {
                     padding: '32px',
                     boxShadow: '0 10px 30px rgba(0,0,0,0.2)'
                   }}
-                  onClick={() => navigate(`/track/${c.complaintId}`)}
+                  onClick={() => navigate(`/complaint/${c.complaintId}`)}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
                     <div style={{ flex: 1 }}>

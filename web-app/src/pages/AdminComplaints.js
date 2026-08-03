@@ -227,7 +227,7 @@ export default function AdminComplaints() {
                     </td>
                     <td style={{ padding: '20px 24px' }}>
                       <div style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={() => navigate(`/track/${c.complaintId}`)}
+                        <button onClick={() => navigate(`/complaint/${c.complaintId}`)}
                           style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
                             color: '#fff', borderRadius: '10px', padding: '8px 14px', fontSize: '10px', fontWeight: 800, cursor: 'pointer' }}>
                           VIEW
