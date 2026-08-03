@@ -1,11 +1,35 @@
+# Environment & Secrets
+.env
+.env.*
+!.env.example
 backend/.env
 web-app/.env
 ml-service/.env
 mobile-app/.env
+*.pem
+*.key
+
+# Scratch & Temporary Folders
+scratch/
+**/scratch/
+scratch/*
 
 # macOS
 .DS_Store
 **/.DS_Store
+
+# Dependencies & Build
+node_modules/
+**/node_modules/
+build/
+dist/
+coverage/
+
+# Logs & Uploads
+logs/
+*.log
+uploads/
+**/uploads/*
 
 # Python virtual environments
 .venv/
