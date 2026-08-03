@@ -429,7 +429,8 @@ exports.getComplaint = async (req, res, next) => {
     if (!complaint) return next(new AppError('Complaint not found.', 404));
 
     // Access control
-    const isOwner = req.user.role === 'user' && complaint.userId._id.toString() === req.user._id.toString();
+    const complaintOwnerId = complaint.userId?._id ? complaint.userId._id.toString() : complaint.userId?.toString();
+    const isOwner = req.user.role === 'user' && complaintOwnerId === req.user._id.toString();
     const isAdmin = req.user.role === 'admin';
 
     if (req.user.role === 'officer') {

@@ -6,19 +6,21 @@ const { maskPII } = require('./privacyShield');
  * Everyone else (Community page browsing) gets a masked, PII-free version.
  */
 function buildComplaintForViewer(complaint, viewer) {
-    const complaintUserId = complaint.userId._id
-        ? complaint.userId._id.toString()
-        : complaint.userId.toString();
+    if (!complaint) return null;
 
-    const isOwner = complaintUserId === viewer._id.toString();
-    const isAdmin = viewer.role === 'admin';
+    const complaintUserId = complaint.userId
+        ? (complaint.userId._id ? complaint.userId._id.toString() : complaint.userId.toString())
+        : null;
+
+    const isOwner = Boolean(complaintUserId && viewer?._id && complaintUserId === viewer._id.toString());
+    const isAdmin = viewer?.role === 'admin';
 
     const assignedToId = complaint.assignedTo
         ? (complaint.assignedTo._id ? complaint.assignedTo._id.toString() : complaint.assignedTo.toString())
         : null;
 
-    const isAssignedOfficer = viewer.role === 'officer' && assignedToId === viewer._id.toString();
-    const isUnassignedAndOfficer = viewer.role === 'officer' && !assignedToId;
+    const isAssignedOfficer = Boolean(viewer?.role === 'officer' && assignedToId && viewer?._id && assignedToId === viewer._id.toString());
+    const isUnassignedAndOfficer = Boolean(viewer?.role === 'officer' && !assignedToId);
 
     const getsOriginal = isOwner || isAdmin || isAssignedOfficer || isUnassignedAndOfficer;
 
