@@ -18,6 +18,13 @@ const protect = async (req, res, next) => {
       return next(new AppError('Access denied. Please log in.', 401));
     }
 
+    // Check if token is blacklisted
+    const TokenBlacklist = require('../models/TokenBlacklist');
+    const isBlacklisted = await TokenBlacklist.findOne({ token });
+    if (isBlacklisted) {
+      return next(new AppError('Token revoked. Please log in again.', 401));
+    }
+
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 

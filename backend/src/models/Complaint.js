@@ -37,6 +37,9 @@ const complaintSchema = new mongoose.Schema({
     required: [true, 'Description is required'],
     minlength: [50, 'Description must be at least 50 characters']
   },
+  maskedDescription: {
+    type: String,
+  },
   category: {
     type: String,
     required: [true, 'Category is required'],

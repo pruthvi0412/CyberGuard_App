@@ -1,9 +1,21 @@
 const twilio = require('twilio');
 const logger = require('../utils/logger');
 
+// Initialize Twilio only when real credentials are present.
+// Placeholder values (e.g. '<copy_from_my_env>') are skipped gracefully.
 let client = null;
-if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
-  client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+const sid   = process.env.TWILIO_ACCOUNT_SID  || '';
+const token = process.env.TWILIO_AUTH_TOKEN   || '';
+
+if (sid.startsWith('AC') && token && token !== '<copy_from_my_env>') {
+  try {
+    client = twilio(sid, token);
+    logger.info('Twilio SMS client initialized.');
+  } catch (err) {
+    logger.warn(`Twilio initialization failed (SMS disabled): ${err.message}`);
+  }
+} else {
+  logger.info('Twilio credentials not configured — SMS features disabled.');
 }
 
 /**

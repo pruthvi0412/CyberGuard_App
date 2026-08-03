@@ -77,9 +77,14 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // Global rate limiting for auth to prevent brute force
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Increased limit for testing
-  message: { status: 'fail', message: 'Too many login attempts from this IP, please try again after 15 minutes' },
+  windowMs: process.env.NODE_ENV === 'development' ? 1 * 60 * 1000 : 15 * 60 * 1000,
+  max: process.env.NODE_ENV === 'development' ? 100 : 5,
+  keyGenerator: (req) => {
+    const email = req.body && req.body.email ? req.body.email.toLowerCase().trim() : '';
+    return `${req.ip}:${email}`;
+  },
+  skipSuccessfulRequests: true, // Only count failed logins
+  message: { status: 'fail', message: 'Too many login attempts, please try again later' },
   skip: (req, res) => {
     const whitelistedEmails = ['pruthvishetty04@gmail.com', 'admin@cybercrime.gov'];
     if (req.body && req.body.email && whitelistedEmails.includes(req.body.email.toLowerCase())) {

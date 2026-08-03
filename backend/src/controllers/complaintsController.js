@@ -9,6 +9,7 @@ const fs = require('fs');
 const ocrService = require('../services/ocrService');
 const emailAgentService = require('../services/emailAgentService');
 const smsService = require('../services/smsService');
+const { buildComplaintForViewer } = require('../utils/complaintVisibility');
 
 // Multer config for file uploads
 const storage = multer.diskStorage({
@@ -47,14 +48,33 @@ exports.createComplaint = async (req, res, next) => {
       return res.status(400).json({ status: 'fail', errors: errors.array() });
     }
 
+    const { maskPII } = require('../utils/privacyShield');
     const { title, description, victimDetails, suspectInfo, location, isAnonymous } = req.body;
+
+    // Apply PII masking to unstructured text fields before persisting
+    const titleResult = title ? maskPII(title) : { masked: title, detected: [] };
+    const descriptionResult = description ? maskPII(description) : { masked: description, detected: [] };
+
+    console.log("\n========== PII DEBUG ==========");
+    console.log("ORIGINAL DESCRIPTION:");
+    console.log(description);
+
+    console.log("\nMASKED DESCRIPTION:");
+    console.log(descriptionResult.masked);
+
+    console.log("\nDETECTED:");
+    console.log(descriptionResult.detected);
+    console.log("================================\n");
+
+    const maskedTitle = titleResult.masked;
+    const maskedDescription = descriptionResult.masked;
 
     // Call ML service for classification
     let mlPrediction = null;
     try {
-      const fullText = title + ' ' + description;
+      const fullText = maskedTitle + ' ' + maskedDescription;
       const prediction = await mlService.predict(fullText);
-      
+
       // Keyword Boosters for Backend
       const lowVal = fullText.toLowerCase();
       const isPhishing = /phishing|spoof|fake|credentials|password|login|verify|link|email/i.test(lowVal);
@@ -106,8 +126,8 @@ exports.createComplaint = async (req, res, next) => {
 
     const complaint = await Complaint.create({
       userId: req.user._id,
-      title,
-      description,
+      title: title, // Store ORIGINAL raw text
+      description: description, // Store ORIGINAL raw text
       category: mlPrediction?.category || 'other',
       mlPrediction,
       severity,
@@ -172,7 +192,7 @@ async function processOCR(complaintId, files) {
   try {
     let allExtracted = { phones: [], upis: [], accounts: [] };
     let allRawText = "";
-    
+
     for (const file of files) {
       // Only process images
       if (file.mimetype.startsWith('image/')) {
@@ -185,12 +205,12 @@ async function processOCR(complaintId, files) {
         }
       }
     }
-    
+
     // Deduplicate extracted identifiers
     allExtracted.phones = [...new Set(allExtracted.phones)];
     allExtracted.upis = [...new Set(allExtracted.upis)];
     allExtracted.accounts = [...new Set(allExtracted.accounts)];
-    
+
     if (allRawText.trim()) {
       await Complaint.findByIdAndUpdate(complaintId, {
         ocrData: {
@@ -217,10 +237,32 @@ exports.getComplaints = async (req, res, next) => {
 
     const query = {};
 
-    // Non-admin only sees their complaints
+    // Role-based query scoping:
+    //   admin      → all complaints (no filter)
+    //   officer    → assigned to them OR unassigned
+    //   user/scope=own  → only their own complaints (MY COMPLAINTS)
+    //   user/scope=public or no scope → all complaints (masked at response layer)
     if (req.user.role === 'user') {
-      query.userId = req.user._id;
+      if (req.query.scope === 'own') {
+        query.userId = req.user._id;
+      }
+      // else: no userId filter → all complaints returned, masking applied below
+    } else if (req.user.role === 'officer') {
+      query.$or = [
+        { assignedTo: req.user._id },
+        { assignedTo: { $exists: false } },
+        { assignedTo: null },
+      ];
     }
+
+    // ── DEBUG LOG ── print every time this route is hit ──
+    console.log('[getComplaints] ─────────────────────────────────');
+    console.log('  originalUrl :', req.originalUrl);
+    console.log('  user.email  :', req.user.email);
+    console.log('  user.role   :', req.user.role);
+    console.log('  scope param :', req.query.scope);
+    console.log('  mongo query :', JSON.stringify(query));
+    console.log('─────────────────────────────────────────────────');
 
     // Filters
     if (status) query.status = status;
@@ -251,16 +293,26 @@ exports.getComplaints = async (req, res, next) => {
       ])
     ]);
 
+    console.log("Mongo returned:", complaints.length);
+    console.log(
+      complaints.map(c => ({
+        id: c.complaintId,
+        owner: c.userId?.email,
+      }))
+    );
+
     // Format status counts for easier consumption
     const stats = statusCounts.reduce((acc, curr) => {
       acc[curr._id] = curr.count;
       return acc;
     }, {});
-
+    const maskedComplaints = complaints.map(complaint =>
+      buildComplaintForViewer(complaint, req.user)
+    );
     res.json({
       status: 'success',
       data: {
-        complaints,
+        complaints: maskedComplaints,
         stats,
         pagination: {
           total,
@@ -279,29 +331,41 @@ exports.getComplaints = async (req, res, next) => {
 // @route   GET /api/complaints/:id
 exports.getComplaint = async (req, res, next) => {
   try {
-    const complaint = await Complaint.findOne({
-      $or: [{ _id: req.params.id }, { complaintId: req.params.id }],
-    })
+    const isObjectId = req.params.id.match(/^[0-9a-fA-F]{24}$/);
+    const query = isObjectId
+      ? { $or: [{ _id: req.params.id }, { complaintId: req.params.id }] }
+      : { complaintId: req.params.id };
+
+    const complaint = await Complaint.findOne(query)
       .populate('userId', 'name email phone')
       .populate('assignedTo', 'name email')
-      .populate('timeline.updatedBy', 'name role')
-      .populate('resolution.resolvedBy', 'name');
+      .populate('timeline.updatedBy', 'name role');
 
     if (!complaint) return next(new AppError('Complaint not found.', 404));
 
     // Access control
-    if (req.user.role === 'user' && complaint.userId._id.toString() !== req.user._id.toString()) {
-      return next(new AppError('Not authorized to view this complaint.', 403));
+    const isOwner = req.user.role === 'user' && complaint.userId._id.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
+
+    if (req.user.role === 'officer') {
+      const isAssignedToMe = complaint.assignedTo && complaint.assignedTo._id.toString() === req.user._id.toString();
+      const isUnassigned = !complaint.assignedTo;
+      if (!isAssignedToMe && !isUnassigned) {
+        return next(new AppError('Not authorized to view this complaint.', 403));
+      }
     }
+    const isOfficer = req.user.role === 'officer';
 
     // AI Email Agent: Send Viewed Email if Admin/Officer views and not previously viewed
-    if (req.user.role !== 'user' && !complaint.isViewed) {
+    if ((isAdmin || isOfficer) && !complaint.isViewed) {
       complaint.isViewed = true;
       await complaint.save();
       emailAgentService.sendViewedEmail(complaint.userId, complaint, req.user.role || 'Officer');
     }
 
-    res.json({ status: 'success', data: { complaint } });
+    const responseComplaint = buildComplaintForViewer(complaint, req.user);
+
+    res.json({ status: 'success', data: { complaint: responseComplaint } });
   } catch (error) {
     next(error);
   }
@@ -312,9 +376,13 @@ exports.getComplaint = async (req, res, next) => {
 exports.updateStatus = async (req, res, next) => {
   try {
     const { status, message, actionTaken } = req.body;
-    const complaint = await Complaint.findOne({
-      $or: [{ _id: req.params.id }, { complaintId: req.params.id }],
-    }).populate('userId', 'name email phone');
+
+    const isObjectId = req.params.id.match(/^[0-9a-fA-F]{24}$/);
+    const query = isObjectId
+      ? { $or: [{ _id: req.params.id }, { complaintId: req.params.id }] }
+      : { complaintId: req.params.id };
+
+    const complaint = await Complaint.findOne(query).populate('userId', 'name email phone');
 
     if (!complaint) return next(new AppError('Complaint not found.', 404));
 
@@ -399,7 +467,7 @@ exports.publicSearch = async (req, res, next) => {
 exports.trackComplaint = async (req, res, next) => {
   try {
     const complaint = await Complaint.findOne({ complaintId: req.params.complaintId })
-      .select('complaintId status category severity title description evidence victimDetails location timeline createdAt updatedAt')
+      .select('complaintId status category severity timeline createdAt updatedAt')
       .lean();
 
     if (!complaint) return next(new AppError('Complaint not found. Please check the ID.', 404));

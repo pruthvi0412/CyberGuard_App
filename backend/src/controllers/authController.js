@@ -45,33 +45,24 @@ const login = async (req, res, next) => {
       return next(new AppError('Account deactivated. Contact support.', 401));
     }
 
-    if (user.isTwoFactorEnabled) {
-      return res.status(200).json({
-        status: 'mfa_required',
-        message: 'Two-Factor Authentication required.',
-        data: { userId: user._id }
-      });
-    }
-
-    // Generate 6-digit OTP
-    const plainOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    user.emailOtp = await bcrypt.hash(plainOtp, 12);
-    user.emailOtpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
-
     user.loginAttempts = 0;
     user.lockUntil = undefined;
+    user.lastLogin = new Date();
+    
+    const { accessToken, refreshToken } = generateTokens(user._id);
+    user.refreshToken = refreshToken;
     await user.save({ validateBeforeSave: false });
 
-    // Send OTP via email
-    const emailAgentService = require('../services/emailAgentService');
-    emailAgentService.sendLoginOtpEmail(user, plainOtp);
+    logger.info(`User logged in directly via email/password: ${user.email}`);
 
-    logger.info(`Email OTP generated for user: ${email}`);
-
-    res.json({
-      status: 'email_otp_required',
-      message: 'OTP sent to your email. Please verify to login.',
-      data: { userId: user._id }
+    res.status(200).json({
+      status: 'success',
+      message: 'Login successful.',
+      data: {
+        user: { id: user._id, name: user.name, email: user.email, role: user.role },
+        accessToken,
+        refreshToken
+      }
     });
   } catch (error) {
     next(error);
@@ -86,7 +77,7 @@ const verifyEmailOtp = async (req, res, next) => {
       return next(new AppError('Please provide userId and otp', 400));
     }
 
-    const user = await User.findById(userId).select('+emailOtp +emailOtpExpires +isActive');
+    const user = await User.findById(userId).select('+emailOtp +emailOtpExpires +otpAttempts +isActive');
 
     if (!user || !user.isActive) {
       return next(new AppError('Invalid user or inactive', 401));
@@ -98,12 +89,23 @@ const verifyEmailOtp = async (req, res, next) => {
 
     const isMatch = await bcrypt.compare(otp, user.emailOtp);
     if (!isMatch) {
-      return next(new AppError('Invalid OTP', 401));
+      // Track failed OTP attempts — invalidate after 5 wrong guesses
+      user.otpAttempts = (user.otpAttempts || 0) + 1;
+      if (user.otpAttempts >= 5) {
+        user.emailOtp = undefined;
+        user.emailOtpExpires = undefined;
+        user.otpAttempts = 0;
+        await user.save({ validateBeforeSave: false });
+        return next(new AppError('Too many failed OTP attempts. Please login again to get a new code.', 429));
+      }
+      await user.save({ validateBeforeSave: false });
+      return next(new AppError(`Invalid OTP. ${5 - user.otpAttempts} attempts remaining.`, 401));
     }
 
     // OTP Valid - Clear it and generate tokens
     user.emailOtp = undefined;
     user.emailOtpExpires = undefined;
+    user.otpAttempts = 0;
     user.lastLogin = new Date();
     
     const { accessToken, refreshToken } = generateTokens(user._id);
@@ -157,6 +159,10 @@ const register = async (req, res, next) => {
 
     const { accessToken, refreshToken } = generateTokens(newUser._id);
     
+    // Send welcome email asynchronously
+    const emailAgentService = require('../services/emailAgentService');
+    emailAgentService.sendWelcomeEmail(newUser);
+    
     res.status(201).json({
       status: 'success',
       data: {
@@ -174,8 +180,34 @@ const register = async (req, res, next) => {
 const logout = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id);
-    user.refreshToken = undefined;
-    await user.save({ validateBeforeSave: false });
+    if (user) {
+      user.refreshToken = undefined;
+      await user.save({ validateBeforeSave: false });
+    }
+
+    // Blacklist the access token
+    let token;
+    if (req.headers.authorization?.startsWith('Bearer')) {
+      token = req.headers.authorization.split(' ')[1];
+    } else if (req.cookies?.jwt) {
+      token = req.cookies.jwt;
+    }
+    
+    if (token) {
+      const jwt = require('jsonwebtoken');
+      try {
+        const decoded = jwt.decode(token);
+        if (decoded && decoded.exp) {
+          const TokenBlacklist = require('../models/TokenBlacklist');
+          await TokenBlacklist.create({
+            token,
+            expiresAt: new Date(decoded.exp * 1000)
+          });
+        }
+      } catch (err) {
+        logger.warn('Failed to decode token for blacklisting: ' + err.message);
+      }
+    }
 
     res.status(200).json({
       status: 'success',

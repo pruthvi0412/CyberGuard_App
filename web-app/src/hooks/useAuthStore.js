@@ -3,7 +3,12 @@ import { authAPI } from '../services/api';
 import { connectSocket, disconnectSocket } from '../services/socket';
 
 const useAuthStore = create((set, get) => ({
-  user:    JSON.parse(localStorage.getItem('user') || 'null'),
+  user: (() => {
+    try {
+      const val = localStorage.getItem('user');
+      return val && val !== 'undefined' ? JSON.parse(val) : null;
+    } catch { return null; }
+  })(),
   token:   localStorage.getItem('accessToken') || null,
   loading: false,
   error:   null,
@@ -13,10 +18,7 @@ const useAuthStore = create((set, get) => ({
     try {
       const { data } = await authAPI.login({ email, password });
       
-      if (data.status === 'mfa_required') {
-        set({ loading: false });
-        return { mfaRequired: true, userId: data.data.userId };
-      }
+// JWT tokens returned directly
 
       const { user, accessToken, refreshToken } = data.data;
       localStorage.setItem('accessToken',  accessToken);
@@ -32,23 +34,7 @@ const useAuthStore = create((set, get) => ({
     }
   },
 
-  verify2FA: async (userId, token) => {
-    set({ loading: true, error: null });
-    try {
-      const { data } = await authAPI.login2FA({ userId, token });
-      const { user, accessToken, refreshToken } = data.data;
-      localStorage.setItem('accessToken',  accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
-      localStorage.setItem('user', JSON.stringify(user));
-      connectSocket(user.id, user.role === 'admin');
-      set({ user, token: accessToken, loading: false });
-      return user;
-    } catch (err) {
-      const msg = err.response?.data?.message || 'Verification failed';
-      set({ error: msg, loading: false });
-      throw new Error(msg);
-    }
-  },
+  // verify2FA and verifyEmailOtp functions removed as OTP flow is disabled.
 
   register: async (formData) => {
     set({ loading: true, error: null });
@@ -71,6 +57,7 @@ const useAuthStore = create((set, get) => ({
   logout: async () => {
     try { await authAPI.logout(); } catch {}
     localStorage.clear();
+    sessionStorage.clear();
     disconnectSocket();
     set({ user: null, token: null });
   },
