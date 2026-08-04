@@ -1,114 +1,296 @@
-# 🛡️ AI Cybercrime Reporting & Complaint Management System
+# CyberGuard AI — Cybercrime Reporting & Forensic Intelligence Platform
 
-A full-stack, AI-powered cybercrime reporting platform with:
-- **Backend**: Node.js + Express + MongoDB + Socket.IO
-- **ML Service**: Python Flask + TF-IDF + Logistic Regression
-- **Web App**: React + Three.js 3D UI + Recharts
-- **Mobile App**: React Native + Expo
-
----
-
-## 📁 Folder Structure
-
-```
-cybercrime-system/
-├── backend/          → Node.js REST API (port 5000)
-├── ml-service/       → Python Flask ML API (port 5001)
-├── web-app/          → React web frontend (port 3000)
-└── mobile-app/       → React Native Expo app
-```
+[![AI Powered](https://img.shields.io/badge/AI-Machine%20Learning-blueviolet?style=flat-square)](https://github.com)
+[![Node.js](https://img.shields.io/badge/Backend-Node.js%20%7C%20Express-green?style=flat-square)](https://nodejs.org)
+[![React](https://img.shields.io/badge/Frontend-React%20%7C%20Three.js-cyan?style=flat-square)](https://reactjs.org)
+[![Python ML](https://img.shields.io/badge/ML%20Service-Python%20%7C%20Flask%20%7C%20scikit--learn-yellow?style=flat-square)](https://python.org)
+[![Security](https://img.shields.io/badge/Security-AES%20%7C%20PII%20Masking%20%7C%20Zero--Trust-red?style=flat-square)](https://github.com)
+[![License](https://img.shields.io/badge/License-MIT-lightgrey?style=flat-square)](#license)
 
 ---
 
-## ⚡ Quick Start (Run Locally)
+## Overview
+
+CyberGuard AI is an AI-powered cybercrime complaint reporting, investigation, and threat intelligence system. It follows a **zero-trust, role-based privacy architecture**: personal identifiable information (PII) is automatically detected and masked, forensic indicators are extracted from evidence via OCR, incidents are classified using an NLP model, and real-time intelligence is delivered to citizens, forensic investigators, and law enforcement agencies.
+
+---
+
+## Key Features
+
+- **AI Cybercrime Classification** — automated NLP categorization into 11 attack vectors (financial fraud, phishing, ransomware, cyberbullying, hacking, identity theft, and others).
+- **Zero-Trust Role-Based Privacy Architecture**
+  - **Complaint Owner** — full unmasked access to their own filing.
+  - **Officer / Admin** — raw case data, forensic link-analysis graphs, and investigation tools.
+  - **Community Browser** — PII automatically anonymized (`PERSON_1`, `PHONE_1`, `EMAIL_1`, `CITY_1`) for safe public browsing of threat patterns.
+- **OCR Evidence Intelligence** — extraction of bank accounts, UPI IDs, transaction hashes, and phone numbers from evidence screenshots using Tesseract OCR.
+- **Threat Heatmaps & Link Analysis** — geospatial attack maps and suspect relationship graphs.
+- **Real-Time Communication** — Socket.IO powered notifications, status tracking, and encrypted chat channels.
+- **Interactive AI Assistant** — voice-driven navigation, audio alerts, and platform monitoring.
+- **Scam Search & Verification** — cross-referencing of suspect UPI IDs, phone numbers, and financial details against a verified threat database.
+
+---
+
+## System Architecture
+
+### 1. High-Level Platform Architecture
+
+```mermaid
+graph TD
+    subgraph Client Layer
+        A[React Web App]
+        B[React Native Mobile App]
+    end
+
+    subgraph Gateway and Middleware
+        C[Node.js Express API Server]
+        D[Socket.IO Real-Time Engine]
+        E[Privacy Shield and PII Anonymizer]
+    end
+
+    subgraph Data and AI Intelligence
+        F[(MongoDB Database)]
+        G[Python Flask ML Engine]
+        H[OCR Processing Engine]
+    end
+
+    A <-->|HTTP / WebSockets| C
+    B <-->|REST APIs| C
+    C <--> D
+    C -->|Sanitize and Mask| E
+    C <-->|Read / Write| F
+    C -->|Classify Text| G
+    C -->|Analyze Evidence Screenshots| H
+```
+
+### 2. Multi-Tier Role-Based Privacy & Data Masking Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Citizen / Victim
+    actor OtherUser as Community Browser User
+    actor Admin as Officer / Admin
+    participant API as Backend Gateway
+    participant Mask as Privacy Shield Engine
+    participant DB as MongoDB Database
+
+    User->>API: POST /api/complaints (Filing Incident)
+    API->>Mask: Process Text and Detect PII (Aadhaar, PAN, UPI, Phone)
+    Mask-->>API: Return Masked Version and Detected Hashes
+    API->>DB: Store Original Raw Data and Masked Version
+
+    Note over API,DB: Role-Based Retrieval Matrix
+
+    OtherUser->>API: GET /api/complaints (Community View)
+    API->>Mask: Apply Public Anonymization (PERSON_1, PHONE_1)
+    API-->>OtherUser: 200 OK (Strictly Masked Data)
+
+    User->>API: GET /api/complaints?scope=own (My Complaints)
+    API-->>User: 200 OK (Original Unmasked Filing)
+
+    Admin->>API: GET /api/complaints (Investigation Desk)
+    API-->>Admin: 200 OK (Full Unmasked Data and Forensic Metadata)
+```
+
+### 3. Complaint Lifecycle & AI Classification Engine
+
+```mermaid
+stateDiagram-v2
+    [*] --> Submitted : Victim files report
+    Submitted --> ML_Classification : Text sent to Python ML Model
+    ML_Classification --> OCR_Analysis : Evidence image uploaded
+    OCR_Analysis --> Pending_Review : Category and Severity assigned
+
+    Pending_Review --> Under_Review : Assigned to Law Enforcement Officer
+    Under_Review --> Investigating : Forensics and Link Analysis active
+    Investigating --> Resolved : Action Taken and Asset Recovery
+    Investigating --> Rejected : Fraudulent filing or Duplicate
+
+    Resolved --> [*]
+    Rejected --> [*]
+```
+
+### 4. AI/ML Classification & OCR Pipeline
+
+```mermaid
+flowchart LR
+    A[Raw Complaint Text] --> B[Text Preprocessing<br/>Tokenize, Stopword Removal, Lemmatize]
+    B --> C[TF-IDF Vectorization]
+    C --> D[Logistic Regression Classifier]
+    D --> E[Category and Severity Output]
+
+    F[Evidence Screenshot] --> G[Tesseract OCR Engine]
+    G --> H[Pattern Extraction<br/>UPI ID, Phone, Account No, Tx Hash]
+    H --> I[Forensic Indicator Store]
+
+    E --> J[Complaint Record]
+    I --> J
+    J --> K[(MongoDB)]
+```
+
+### 5. Request/Data Flow Across Services
+
+```mermaid
+graph LR
+    Client[React Web / Mobile Client] -->|JWT Auth| Gateway[Express API Gateway]
+    Gateway -->|Rate Limited, Helmet Secured| Auth[Auth Middleware]
+    Auth --> Controller[Complaint / Chat / Analytics Controllers]
+    Controller -->|Text| ML[Flask ML Service :5001]
+    Controller -->|Image| OCR[OCR Service]
+    Controller -->|CRUD| DB[(MongoDB)]
+    Controller -->|Events| Socket[Socket.IO Engine]
+    Socket -->|Live Updates| Client
+```
+
+---
+
+## Technology Stack
+
+| Layer | Technologies |
+| :--- | :--- |
+| **Frontend Web** | React 18, Three.js, Recharts, Framer Motion, Axios |
+| **Frontend Mobile** | React Native, Expo, React Navigation |
+| **Backend Core** | Node.js, Express.js, MongoDB, Mongoose, Socket.IO |
+| **AI / ML Service** | Python 3.10, Flask, scikit-learn, NLTK, TF-IDF + Logistic Regression |
+| **Forensics & OCR** | Tesseract.js / Tesseract OCR, Sharp |
+| **Security & Auth** | JWT, bcryptjs, Helmet, Express Rate Limit, PII Masking Shield |
+
+---
+
+## Repository Structure
+
+```text
+CyberGuard_App/
+├── backend/                   Node.js + Express REST API server
+│   ├── src/
+│   │   ├── config/            Database and service connections
+│   │   ├── controllers/       Complaint, Auth, Chat and Analytics logic
+│   │   ├── middleware/        JWT auth and error handling
+│   │   ├── models/            MongoDB schemas (Complaint, User, Chat, etc.)
+│   │   ├── routes/            Express API route definitions
+│   │   ├── services/          OCR, SMS, Email and ML service connectors
+│   │   └── utils/             Privacy shield and PII masking utilities
+│   └── server.js              Entry point and Socket.IO server initialization
+│
+├── ml-service/                Python Flask AI classification engine
+│   ├── src/                   Flask API application
+│   ├── models/                Pre-trained TF-IDF vectorizers and ML models
+│   ├── train_model.py         Model training pipeline script
+│   └── requirements.txt       Python dependencies
+│
+├── web-app/                   React web application
+│   ├── public/                Static assets and voices
+│   └── src/
+│       ├── components/        Navbar, AI Assistant, CyberReport, Scanner
+│       ├── pages/              Dashboard, Community, Admin, Forensics, Settings
+│       ├── services/           API Axios client and Socket listener
+│       └── hooks/               Zustand auth and theme state management
+│
+└── mobile-app/                React Native Expo mobile app
+    └── src/                   Native screens and components
+```
+
+---
+
+## Role-Based Access Matrix
+
+| Feature / View | Regular User (Victim) | Community Browser | Police Officer | Super Admin |
+| :--- | :---: | :---: | :---: | :---: |
+| File Complaint | Yes | No | Yes | Yes |
+| View Own Filings (Unmasked) | Yes | No | Yes | Yes |
+| Community Browser (Masked) | Yes | Yes | Yes | Yes |
+| View Other's Raw PII | No | No | Yes | Yes |
+| Command Center & Forensics | No | No | Yes | Yes |
+| Status Update & Resolution | No | No | Yes | Yes |
+| System User Management | No | No | No | Yes |
+
+---
+
+## Quick Start Guide (Local Setup)
 
 ### Prerequisites
-- Node.js 18+ → nodejs.org
-- Python 3.10+ → python.org
-- MongoDB 7.0 → mongodb.com
-- Expo Go app on your phone
+- Node.js v18+
+- Python v3.10+
+- MongoDB v7.0+ (local instance or MongoDB Atlas cluster)
 
 ### Step 1 — Start MongoDB
 ```bash
-# macOS
+# macOS (Homebrew)
 brew services start mongodb-community@7.0
 
-# Linux
+# Linux (systemd)
 sudo systemctl start mongod
 ```
 
-### Step 2 — Start ML Service
+### Step 2 — Launch the ML Service
 ```bash
 cd ml-service
+
 python3 -m venv venv
-source venv/bin/activate          # Windows: .\venv\Scripts\Activate.ps1
+source venv/bin/activate       # Windows: .\venv\Scripts\Activate.ps1
+
 pip install -r requirements.txt
 python3 -c "import nltk; nltk.download('punkt'); nltk.download('stopwords'); nltk.download('wordnet')"
-mkdir -p models
+
 python3 train_model.py
 python3 src/app.py
 ```
+Runs on `http://localhost:5001`
 
-### Step 3 — Start Backend
+### Step 3 — Launch the Backend Server
 ```bash
 cd backend
 npm install
-# Copy .env and fill in your values
-cp .env .env.backup
+
+# Create a .env file with PORT, MONGO_URI, JWT_SECRET, etc.
+
 npm run dev
 ```
+Runs on `http://localhost:5002`
 
-### Step 4 — Start Web App
+### Step 4 — Launch the React Web App
 ```bash
 cd web-app
 npm install
 npm start
-# Opens http://localhost:3000
 ```
+Runs on `http://localhost:3000`
 
-### Step 5 — Start Mobile App
+### Step 5 — Launch the Mobile App (optional)
 ```bash
 cd mobile-app
 npm install
-# Edit src/services/api.js — change BASE_URL to your LAN IP
 npx expo start
-# Scan QR code with Expo Go
 ```
+Scan the QR code with the Expo Go app on iOS/Android.
 
 ---
 
-## 🔑 Default Admin Login
-- **Email**: admin@cybercrime.gov
-- **Password**: Admin@123456
+## Default Credentials
+
+| Role | Email | Password |
+| :--- | :--- | :--- |
+| Super Admin | `admin@cybercrime.gov` | `Admin@123456` |
+| Police Officer | `officer@cybercrime.gov` | `Officer@123456` |
+| Test User | `user@cybercrime.gov` | `User@123456` |
 
 ---
 
-## 🌐 Ports
-| Service    | Port |
-|------------|------|
-| Backend    | 5000 |
-| ML Service | 5001 |
-| Web App    | 3000 |
-| MongoDB    | 27017|
+## Main API Endpoints
+
+| Method | Endpoint | Access | Description |
+| :--- | :--- | :--- | :--- |
+| POST | `/api/auth/register` | Public | Register new user account |
+| POST | `/api/auth/login` | Public | Login and receive JWT access + refresh tokens |
+| POST | `/api/complaints` | Authenticated | Submit new complaint report with evidence |
+| GET | `/api/complaints?scope=own` | Authenticated | Get logged-in user's own complaints |
+| GET | `/api/complaints?scope=public` | Authenticated | Get all complaints (PII masked for non-owners) |
+| GET | `/api/complaints/:id` | Authenticated | Get single complaint detail (role-masked) |
+| PATCH | `/api/complaints/:id/status` | Officer / Admin | Update complaint status and add timeline entry |
+| GET | `/api/complaints/public/search` | Public | Search suspect phone, UPI, or account numbers |
 
 ---
 
-## 🚀 Deploy to Internet
-See the Deployment Guide PDF for full instructions:
-- MongoDB → **MongoDB Atlas** (free)
-- ML Service + Backend → **Railway.app** (free tier)
-- Web App → **Vercel** (free)
-- Mobile → **Google Play** ($25) + **App Store** ($99/year)
+## License
 
----
-
-## 📊 Tech Stack
-| Layer      | Technology                              |
-|------------|-----------------------------------------|
-| Backend    | Node.js, Express, MongoDB, Socket.IO    |
-| ML         | Python, Flask, scikit-learn, NLTK       |
-| Web        | React, Three.js, Recharts, Framer Motion|
-| Mobile     | React Native, Expo, AsyncStorage        |
-| Auth       | JWT (access + refresh tokens)           |
-| Real-time  | Socket.IO WebSockets                    |
-| AI         | TF-IDF + Logistic Regression (11 categories)|
+Distributed under the MIT License.
