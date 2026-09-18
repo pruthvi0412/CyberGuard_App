@@ -1,8 +1,13 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// ⚠️  Replace with your LAN IP — NOT localhost
-export const BASE_URL = process.env.API_URL || 'https://cybercrime-repair-test.loca.lt/api';
+// Configure EXPO_PUBLIC_API_URL in mobile-app/.env for development, staging, or production.
+// The localhost fallback is development-only; production builds must provide a URL.
+const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL || process.env.API_URL;
+if (!configuredApiUrl && !__DEV__) {
+  throw new Error('EXPO_PUBLIC_API_URL must be configured for production builds.');
+}
+export const BASE_URL = configuredApiUrl || 'http://localhost:5002/api';
 
 const api = axios.create({ baseURL: BASE_URL, timeout: 30000 });
 
@@ -43,6 +48,7 @@ export const authAPI = {
   login:    (d)   => api.post('/auth/login', d),
   logout:   ()    => api.post('/auth/logout'),
   getMe:    ()    => api.get('/auth/me'),
+  registerPushToken: (token) => api.post('/users/push-token', { token }),
 };
 
 export const complaintsAPI = {

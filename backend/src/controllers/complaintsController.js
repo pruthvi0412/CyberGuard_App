@@ -40,6 +40,44 @@ exports.upload = multer({
   limits: { fileSize: parseInt(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024 },
 }).array('evidence', 5);
 
+// @desc    Download complaint evidence for an authorized viewer
+// @route   GET /api/complaints/:complaintId/evidence/:filename
+exports.getEvidence = async (req, res, next) => {
+  try {
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(req.params.complaintId);
+    const query = isObjectId
+      ? { $or: [{ _id: req.params.complaintId }, { complaintId: req.params.complaintId }] }
+      : { complaintId: req.params.complaintId };
+    const complaint = await Complaint.findOne(query).select('userId assignedTo evidence');
+
+    if (!complaint) return next(new AppError('Complaint not found.', 404));
+
+    const viewerId = req.user._id.toString();
+    const ownerId = complaint.userId.toString();
+    const assignedId = complaint.assignedTo?.toString();
+    const authorized = req.user.role === 'admin'
+      || viewerId === ownerId
+      || (req.user.role === 'officer' && assignedId === viewerId);
+
+    if (!authorized) return next(new AppError('Not authorized to access this evidence.', 403));
+
+    const evidence = complaint.evidence.find(item => item.filename === req.params.filename);
+    if (!evidence) return next(new AppError('Evidence file not found.', 404));
+
+    const evidenceRoot = path.resolve(process.cwd(), 'uploads', 'evidence');
+    const filePath = path.resolve(evidenceRoot, evidence.filename);
+    if (!filePath.startsWith(`${evidenceRoot}${path.sep}`)) {
+      return next(new AppError('Invalid evidence path.', 400));
+    }
+
+    return res.sendFile(filePath, (error) => {
+      if (error && !res.headersSent) next(error);
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Submit new complaint
 // @route   POST /api/complaints
 exports.createComplaint = async (req, res, next) => {

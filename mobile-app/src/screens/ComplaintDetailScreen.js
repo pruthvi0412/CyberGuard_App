@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Alert } from 'react-native';
+import { View, Text, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { complaintsAPI } from '../services/api';
 import { colors, globalStyles, statusColors } from '../utils/theme';
 import { format } from 'date-fns';
 
-export default function ComplaintDetailScreen({ route }) {
+export default function ComplaintDetailScreen({ route, navigation }) {
   const { complaintId } = route.params;
   const [complaint, setComplaint] = useState(null);
   const [loading,   setLoading]   = useState(true);
@@ -105,5 +106,6 @@ export default function ComplaintDetailScreen({ route }) {
         ))}
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 }

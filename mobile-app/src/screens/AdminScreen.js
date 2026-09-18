@@ -6,10 +6,13 @@ import { colors, globalStyles, statusColors } from '../utils/theme';
 import { format } from 'date-fns';
 import CyberBackground from '../components/CyberBackground';
 import { useFocusEffect } from '@react-navigation/native';
+import useAuthStore from '../hooks/useAuthStore';
 
 const { height } = Dimensions.get('window');
 
 export default function AdminScreen({ navigation }) {
+  const { user } = useAuthStore();
+  const isAdminUser = user?.role === 'admin';
   const [overview,   setOverview]   = useState(null);
   const [complaints, setComplaints] = useState([]);
   const [health,     setHealth]     = useState({ cpu: 0, memory: 0, storage: 0, uptime: 0 });
@@ -35,16 +38,19 @@ export default function AdminScreen({ navigation }) {
         setError(true);
       }
 
-      // Step 2: System Metrics (Non-blocking)
-      try {
-        const [hlRes, mlRes] = await Promise.all([
-          adminAPI.systemStats(),
-          adminAPI.mlStatus()
-        ]);
-        setHealth(hlRes.data?.data?.health || health);
-        setMlStatus(mlRes.data?.data || null);
-      } catch (e) {
-        console.log('System metrics sync deferred or restricted');
+      // Step 2: Admin-only system metrics. Officers may use the shared
+      // analytics and complaint-status capabilities above, but not /admin/*.
+      if (isAdminUser) {
+        try {
+          const [hlRes, mlRes] = await Promise.all([
+            adminAPI.systemStats(),
+            adminAPI.mlStatus()
+          ]);
+          setHealth(hlRes.data?.data?.health || health);
+          setMlStatus(mlRes.data?.data || null);
+        } catch (e) {
+          console.log('Admin system metrics unavailable');
+        }
       }
       
     } catch (e) {
@@ -58,7 +64,7 @@ export default function AdminScreen({ navigation }) {
   useFocusEffect(
     useCallback(() => {
       fetchData();
-    }, [])
+    }, [isAdminUser])
   );
 
   const handleAction = (name) => {
@@ -165,30 +171,32 @@ export default function AdminScreen({ navigation }) {
               ))}
             </View>
 
-            {/* System Protocols */}
-            <View style={styles.metricsCard}>
-              <Text style={[globalStyles.sectionTitle, { color: colors.electric, fontSize: 11, marginBottom: 15 }]}>SYSTEM PROTOCOLS</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-                {[
-                  { label: 'AUDIT',    color: colors.electric, icon: '🔍' },
-                  { label: 'ALERT',    color: colors.accent,   icon: '📢' },
-                  { label: 'OPTIMIZE', color: '#FFD600',       icon: '⚡' },
-                  { label: 'PURGE',    color: colors.danger,   icon: '🗑️' }
-                ].map(p => (
-                  <TouchableOpacity 
-                    key={p.label} 
-                    onPress={() => handleAction(p.label)}
-                    style={[styles.protocolBtn, { borderColor: `${p.color}40` }]}
-                  >
-                    <Text style={{ fontSize: 14, marginBottom: 4 }}>{p.icon}</Text>
-                    <Text style={[styles.protocolText, { color: p.color }]}>{p.label}</Text>
-                  </TouchableOpacity>
-                ))}
+            {/* System Protocols are admin-only placeholders until backed by APIs. */}
+            {isAdminUser && (
+              <View style={styles.metricsCard}>
+                <Text style={[globalStyles.sectionTitle, { color: colors.electric, fontSize: 11, marginBottom: 15 }]}>SYSTEM PROTOCOLS</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                  {[
+                    { label: 'AUDIT',    color: colors.electric, icon: '🔍' },
+                    { label: 'ALERT',    color: colors.accent,   icon: '📢' },
+                    { label: 'OPTIMIZE', color: '#FFD600',       icon: '⚡' },
+                    { label: 'PURGE',    color: colors.danger,   icon: '🗑️' }
+                  ].map(p => (
+                    <TouchableOpacity
+                      key={p.label}
+                      onPress={() => handleAction(p.label)}
+                      style={[styles.protocolBtn, { borderColor: `${p.color}40` }]}
+                    >
+                      <Text style={{ fontSize: 14, marginBottom: 4 }}>{p.icon}</Text>
+                      <Text style={[styles.protocolText, { color: p.color }]}>{p.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
-            </View>
+            )}
 
-            {/* Neural Engine & Health */}
-            <View style={{ flexDirection: 'row', gap: 15, marginVertical: 20 }}>
+            {/* Neural Engine & Health are backed by admin-only endpoints. */}
+            {isAdminUser && <View style={{ flexDirection: 'row', gap: 15, marginVertical: 20 }}>
               <View style={[styles.statCard, { flex: 1, borderColor: 'rgba(156, 39, 176, 0.3)' }]}>
                 <Text style={[globalStyles.sectionTitle, { color: '#9C27B0', fontSize: 10, marginBottom: 10 }]}>NEURAL ENGINE</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -217,7 +225,7 @@ export default function AdminScreen({ navigation }) {
                   </View>
                 ))}
               </View>
-            </View>
+            </View>}
 
             {/* Recent Incident Stream */}
             <View style={styles.metricsCard}>

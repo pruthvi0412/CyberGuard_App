@@ -198,11 +198,7 @@ export default function SubmitComplaintScreen({ navigation }) {
               <TouchableOpacity style={globalStyles.btnPrimary} onPress={handleSubmit} disabled={loading}>
                 {loading ? <ActivityIndicator color="#fff" /> : <Text style={globalStyles.btnPrimaryText}>🚀 Finalize & Submit</Text>}
               </TouchableOpacity>
-            ) : (
-              <TouchableOpacity style={[globalStyles.btnPrimary, { backgroundColor: colors.cyber }]} onPress={handleSubmit} disabled={loading}>
-                <Text style={globalStyles.btnPrimaryText}>Quick Submit</Text>
-              </TouchableOpacity>
-            )}
+            ) : null}
 
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <TouchableOpacity style={[globalStyles.btnOutline, { flex: 1 }]}
