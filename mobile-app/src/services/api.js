@@ -3,11 +3,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-// Helper to determine the best backend URL automatically
-export function getDefaultBaseUrl() {
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
-  }
+// Configure EXPO_PUBLIC_API_URL in mobile-app/.env for development, staging, or production.
+// The localhost fallback is development-only; production builds must provide a URL.
+const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL || process.env.API_URL;
+if (!configuredApiUrl && !__DEV__) {
+  throw new Error('EXPO_PUBLIC_API_URL must be configured for production builds.');
+}
+export const BASE_URL = configuredApiUrl || 'http://localhost:5002/api';
 
   // 1. Detect Expo Host IP (only if it's a valid local IP, NOT a tunnel hostname)
   const hostUri = Constants.expoConfig?.hostUri || Constants.manifest2?.extra?.expoClient?.hostUri || Constants.manifest?.debuggerHost;
@@ -138,11 +140,11 @@ api.interceptors.response.use(
 );
 
 export const authAPI = {
-  register:      (d)    => api.post('/auth/register', d),
-  login:         (d)    => api.post('/auth/login', d),
-  logout:        ()     => api.post('/auth/logout'),
-  getMe:         ()     => api.get('/auth/me'),
-  updateProfile: (d)    => api.patch('/auth/profile', d),
+  register: (d)   => api.post('/auth/register', d),
+  login:    (d)   => api.post('/auth/login', d),
+  logout:   ()    => api.post('/auth/logout'),
+  getMe:    ()    => api.get('/auth/me'),
+  registerPushToken: (token) => api.post('/users/push-token', { token }),
 };
 
 export const complaintsAPI = {

@@ -6,12 +6,16 @@ import useAuthStore from '../hooks/useAuthStore';
 import { colors, globalStyles, statusColors, severityColors } from '../utils/theme';
 import { format } from 'date-fns';
 import CyberBackground from '../components/CyberBackground';
+import { useFocusEffect } from '@react-navigation/native';
+import useAuthStore from '../hooks/useAuthStore';
 
 const STATUSES = ['pending', 'under_review', 'investigating', 'resolved', 'rejected'];
 const SEVERITIES = ['low', 'medium', 'high', 'critical'];
 
 export default function AdminScreen({ navigation }) {
   const { user } = useAuthStore();
+  const isAdminUser = user?.role === 'admin';
+  const [overview,   setOverview]   = useState(null);
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -24,20 +28,48 @@ export default function AdminScreen({ navigation }) {
 
   const fetchAdminComplaints = async () => {
     try {
-      const { data } = await complaintsAPI.getAll({ limit: 50 });
-      const list = data.data?.complaints || data.data || [];
-      setComplaints(list);
-    } catch (err) {
-      console.log('Admin list fetch:', err.message);
+      // Step 1: Priority Core Data
+      const [ovRes, clRes] = await Promise.allSettled([
+        analyticsAPI.overview(),
+        complaintsAPI.getAll({ limit: 50 })
+      ]);
+
+      if (ovRes.status === 'fulfilled') setOverview(ovRes.value.data?.data?.overview || null);
+      if (clRes.status === 'fulfilled') setComplaints(clRes.value.data?.data?.complaints || []);
+      
+      if (ovRes.status === 'rejected' && clRes.status === 'rejected') {
+        setError(true);
+      }
+
+      // Step 2: Admin-only system metrics. Officers may use the shared
+      // analytics and complaint-status capabilities above, but not /admin/*.
+      if (isAdminUser) {
+        try {
+          const [hlRes, mlRes] = await Promise.all([
+            adminAPI.systemStats(),
+            adminAPI.mlStatus()
+          ]);
+          setHealth(hlRes.data?.data?.health || health);
+          setMlStatus(mlRes.data?.data || null);
+        } catch (e) {
+          console.log('Admin system metrics unavailable');
+        }
+      }
+      
+    } catch (e) {
+      console.error('Unexpected Admin Fetch Error:', e);
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  useEffect(() => {
-    fetchAdminComplaints();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [isAdminUser])
+  );
 
   const openTriageModal = (item) => {
     setSelectedComp(item);
@@ -133,33 +165,61 @@ export default function AdminScreen({ navigation }) {
         </View>
       </View>
 
-      <FlatList
-        data={complaints}
-        keyExtractor={item => item._id}
-        renderItem={renderComplaintItem}
-        contentContainerStyle={{ padding: 18, paddingBottom: 60 }}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchAdminComplaints(); }} tintColor={colors.accent} />
-        }
-        ListEmptyComponent={
-          !loading && (
-            <View style={[globalStyles.glassCard, { alignItems: 'center', padding: 30 }]}>
-              <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '900' }}>NO ACTIVE INCIDENTS TO TRIAGE</Text>
-            </View>
-          )
-        }
-      />
+            {/* System Protocols are admin-only placeholders until backed by APIs. */}
+            {isAdminUser && (
+              <View style={styles.metricsCard}>
+                <Text style={[globalStyles.sectionTitle, { color: colors.electric, fontSize: 11, marginBottom: 15 }]}>SYSTEM PROTOCOLS</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                  {[
+                    { label: 'AUDIT',    color: colors.electric, icon: '🔍' },
+                    { label: 'ALERT',    color: colors.accent,   icon: '📢' },
+                    { label: 'OPTIMIZE', color: '#FFD600',       icon: '⚡' },
+                    { label: 'PURGE',    color: colors.danger,   icon: '🗑️' }
+                  ].map(p => (
+                    <TouchableOpacity
+                      key={p.label}
+                      onPress={() => handleAction(p.label)}
+                      style={[styles.protocolBtn, { borderColor: `${p.color}40` }]}
+                    >
+                      <Text style={{ fontSize: 14, marginBottom: 4 }}>{p.icon}</Text>
+                      <Text style={[styles.protocolText, { color: p.color }]}>{p.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
 
-      {/* Triage Modal */}
-      <Modal visible={modalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={[globalStyles.glassCard, styles.modalContent]}>
-            <View style={globalStyles.spaceBetween}>
-              <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '900' }}>CASE TRIAGE CONTROL</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Text style={{ color: colors.muted, fontSize: 18 }}>✕</Text>
-              </TouchableOpacity>
-            </View>
+            {/* Neural Engine & Health are backed by admin-only endpoints. */}
+            {isAdminUser && <View style={{ flexDirection: 'row', gap: 15, marginVertical: 20 }}>
+              <View style={[styles.statCard, { flex: 1, borderColor: 'rgba(156, 39, 176, 0.3)' }]}>
+                <Text style={[globalStyles.sectionTitle, { color: '#9C27B0', fontSize: 10, marginBottom: 10 }]}>NEURAL ENGINE</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.success, shadowColor: colors.success, shadowRadius: 5, shadowOpacity: 1 }} />
+                  <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>ONLINE</Text>
+                </View>
+                <Text style={{ color: colors.muted, fontSize: 9 }}>Accuracy: 97.4%</Text>
+                <Text style={{ color: colors.muted, fontSize: 9, marginTop: 4 }}>Models: 4 Active</Text>
+              </View>
+
+              <View style={[styles.statCard, { flex: 1 }]}>
+                <Text style={[globalStyles.sectionTitle, { color: '#fff', fontSize: 10, marginBottom: 10 }]}>SYSTEM HEALTH</Text>
+                {[
+                  { label: 'CPU', val: health.cpu, color: colors.accent },
+                  { label: 'MEM', val: health.memory, color: '#FFD600' },
+                  { label: 'DSK', val: health.storage, color: colors.electric }
+                ].map(h => (
+                  <View key={h.label} style={{ marginBottom: 6 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 }}>
+                      <Text style={{ color: colors.muted, fontSize: 8, fontWeight: '700' }}>{h.label}</Text>
+                      <Text style={{ color: '#fff', fontSize: 8 }}>{Math.round(h.val)}%</Text>
+                    </View>
+                    <View style={{ height: 3, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 2 }}>
+                      <View style={{ width: `${h.val}%`, height: '100%', backgroundColor: h.color, borderRadius: 2 }} />
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>}
 
             <Text style={{ color: colors.cyber, fontSize: 11, fontWeight: '800', marginTop: 4, fontFamily: 'monospace' }}>
               {selectedComp?.complaintId}

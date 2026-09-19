@@ -336,19 +336,7 @@ export default function SubmitComplaintScreen({ route, navigation }) {
               >
                 <Text style={globalStyles.btnPrimaryText}>CONTINUE TO {STEPS[step + 1].toUpperCase()} →</Text>
               </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={[globalStyles.btnPrimary, { backgroundColor: colors.accent }]}
-                onPress={handleSubmit}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#030A14" />
-                ) : (
-                  <Text style={globalStyles.btnPrimaryText}>🚀 SUBMIT INCIDENT TO CLOUD DB</Text>
-                )}
-              </TouchableOpacity>
-            )}
+            ) : null}
 
             {step > 0 && (
               <TouchableOpacity style={globalStyles.btnOutline} onPress={() => setStep(s => s - 1)}>

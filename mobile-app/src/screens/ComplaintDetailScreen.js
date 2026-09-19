@@ -1,13 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { complaintsAPI, chatsAPI } from '../services/api';
-import { colors, globalStyles, statusColors, severityColors } from '../utils/theme';
+import { complaintsAPI } from '../services/api';
+import { colors, globalStyles, statusColors } from '../utils/theme';
 import { format } from 'date-fns';
 import CyberBackground from '../components/CyberBackground';
 import useAuthStore from '../hooks/useAuthStore';
-
-const { width } = Dimensions.get('window');
 
 export default function ComplaintDetailScreen({ route, navigation }) {
   const { complaintId } = route.params;
@@ -178,114 +176,9 @@ export default function ComplaintDetailScreen({ route, navigation }) {
               </Text>
             </View>
           </View>
-        )}
-
-        {/* Suspect Identifiers */}
-        {complaint.suspectInfo && (complaint.suspectInfo.phone || complaint.suspectInfo.email || complaint.suspectInfo.bankDetails) && (
-          <View style={globalStyles.glassCard}>
-            <Text style={globalStyles.sectionTitle}>🚨 SUSPECT IDENTIFIERS</Text>
-            {complaint.suspectInfo.phone && (
-              <View style={styles.suspectRow}>
-                <Text style={styles.suspectLabel}>Phone:</Text>
-                <Text style={styles.suspectVal}>{complaint.suspectInfo.phone}</Text>
-              </View>
-            )}
-            {complaint.suspectInfo.email && (
-              <View style={styles.suspectRow}>
-                <Text style={styles.suspectLabel}>Email:</Text>
-                <Text style={styles.suspectVal}>{complaint.suspectInfo.email}</Text>
-              </View>
-            )}
-            {complaint.suspectInfo.bankDetails && (
-              <View style={styles.suspectRow}>
-                <Text style={styles.suspectLabel}>Financial Ref:</Text>
-                <Text style={styles.suspectVal}>{complaint.suspectInfo.bankDetails}</Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Evidence Dossier */}
-        {complaint.evidence && complaint.evidence.length > 0 && (
-          <View style={globalStyles.glassCard}>
-            <Text style={globalStyles.sectionTitle}>📁 ATTACHED EVIDENCE ({complaint.evidence.length})</Text>
-            {complaint.evidence.map((ev, i) => (
-              <View key={i} style={styles.evidenceItem}>
-                <Text style={{ fontSize: 14 }}>📄</Text>
-                <Text style={styles.evidenceName} numberOfLines={1}>
-                  {ev.filename || ev.url?.split('/').pop() || `Evidence_File_${i+1}`}
-                </Text>
-                <Text style={{ color: colors.accent, fontSize: 11 }}>ATTACHED</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Timeline Stepper */}
-        <View style={globalStyles.glassCard}>
-          <Text style={globalStyles.sectionTitle}>⏳ INVESTIGATION TIMELINE</Text>
-          {(complaint.timeline && complaint.timeline.length > 0 ? complaint.timeline : [
-            { status: 'pending', message: 'Complaint registered and queued for neural categorization.', timestamp: complaint.createdAt },
-            { status: 'under_review', message: 'Initial triage complete. Case dossier verified.', timestamp: complaint.createdAt }
-          ]).map((t, i) => {
-            const stepColor = statusColors[t.status] || colors.cyber;
-            return (
-              <View key={i} style={{ flexDirection: 'row', gap: 12, marginBottom: 14 }}>
-                <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: `${stepColor}25`, borderWidth: 2, borderColor: stepColor, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Text style={{ fontSize: 10 }}>{t.status === 'resolved' ? '✓' : '●'}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>{t.message}</Text>
-                  <Text style={{ color: colors.muted, fontSize: 10, marginTop: 2 }}>
-                    {t.timestamp ? format(new Date(t.timestamp), 'dd MMM yyyy, hh:mm a') : 'Logged'}
-                  </Text>
-                </View>
-              </View>
-            );
-          })}
-        </View>
-
-        {/* Officer Case Notes & Citizen Comms */}
-        <View style={globalStyles.glassCard}>
-          <Text style={globalStyles.sectionTitle}>💬 CASE LOG & DIRECT OFFICER NOTES</Text>
-          {caseChats.length === 0 ? (
-            <Text style={{ color: colors.muted, fontSize: 12, textAlign: 'center', paddingVertical: 10 }}>
-              No private officer notes on this case yet.
-            </Text>
-          ) : (
-            caseChats.map((c, i) => (
-              <View key={i} style={styles.caseChatBubble}>
-                <View style={globalStyles.spaceBetween}>
-                  <Text style={{ color: colors.accent, fontSize: 11, fontWeight: '800' }}>
-                    {c.sender?.name || 'Investigating Officer'}
-                  </Text>
-                  <Text style={{ color: colors.muted, fontSize: 9 }}>
-                    {c.createdAt ? format(new Date(c.createdAt), 'hh:mm a') : ''}
-                  </Text>
-                </View>
-                <Text style={{ color: '#FFFFFF', fontSize: 12, marginTop: 4 }}>{c.message}</Text>
-              </View>
-            ))
-          )}
-
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-            <TextInput
-              style={[styles.chatInput, { flex: 1 }]}
-              placeholder="Add remark or note to case file..."
-              placeholderTextColor={colors.muted}
-              value={chatText}
-              onChangeText={setChatText}
-            />
-            <TouchableOpacity 
-              style={[styles.sendBtn, (!chatText.trim() || sendingChat) && { opacity: 0.5 }]} 
-              onPress={handleSendCaseChat}
-              disabled={!chatText.trim() || sendingChat}
-            >
-              <Text style={{ color: '#030A14', fontWeight: '900', fontSize: 13 }}>LOG</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </ScrollView>
+        ))}
+      </View>
+    </ScrollView>
     </SafeAreaView>
   );
 }
