@@ -2,6 +2,7 @@ services:
   - type: web
     name: cybercrime-backend
     env: node
+    plan: free
     rootDir: backend
     buildCommand: npm install
     startCommand: npm start
@@ -22,6 +23,7 @@ services:
   - type: web
     name: cybercrime-ml-service
     env: python
+    plan: free
     rootDir: ml-service
     buildCommand: pip install -r requirements.txt && python -c "import nltk; nltk.download('punkt_tab'); nltk.download('stopwords'); nltk.download('wordnet')" && python train_model.py
     startCommand: python src/app.py
