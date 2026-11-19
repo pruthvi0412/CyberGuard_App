@@ -209,14 +209,6 @@ export default function Login() {
 
           {!otpData && (
             <div style={{ marginTop: 32 }}>
-              <div style={{ 
-                padding: '16px', borderRadius: 'var(--radius-md)', background: 'var(--auth-input-bg)', 
-                border: '1px solid var(--auth-card-border)', fontSize: '13px', color: 'var(--auth-subtext)',
-                lineHeight: 1.5, marginBottom: 32
-              }}>
-                <strong style={{ color: 'var(--auth-heading)' }}>DEMO ADMIN:</strong> admin@cybercrime.gov / Admin@123456
-              </div>
-
               <p style={{ textAlign: 'center', fontSize: '14px', color: 'var(--auth-muted-link)', fontWeight: 600 }}>
                 No credentials?{' '}
                 <Link to="/register" style={{ color: 'var(--auth-heading)', textDecoration: 'none', fontWeight: 800 }}>

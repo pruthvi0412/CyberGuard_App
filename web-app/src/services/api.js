@@ -123,6 +123,9 @@ export const complaintsAPI = {
   updateRestitutionMilestone: (id, payload) => api.post(`/complaints/${id}/restitution-milestone`, payload),
   getRestitutionStatus: (id) => api.get(`/complaints/${id}/restitution-status`),
   track: (id) => api.get(`/complaints/track/${id}`),
+  addSupplementaryEvidence: (id, formData) => api.post(`/complaints/${id}/supplementary-evidence`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
   publicSearch: (q) => api.get('/complaints/public/search', { params: { q } }),
   analyze: (text) => api.post('/complaints/analyze', { text }),
   updateStatus: (id, d) => api.patch(`/complaints/${id}/status`, d),

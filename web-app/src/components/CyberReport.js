@@ -459,11 +459,12 @@ const CyberReport = () => {
       }
 
       const response = await complaintsAPI.create(formData);
-      const caseId = response.data?.complaintId || response.data?.data?._id || '';
+      const createdComplaint = response.data?.data?.complaint;
+      const targetTrackingId = createdComplaint?.complaintId || createdComplaint?._id || '';
 
-      toast.success(`Incident reported successfully${caseId ? ` [Case #${caseId}]` : ''}`, { duration: 5000 });
+      toast.success(`Incident reported successfully${targetTrackingId ? ` [Case #${targetTrackingId}]` : ''}`, { duration: 5000 });
       window.dispatchEvent(new CustomEvent('cyberguard:assistant-event', {
-        detail: { type: 'complaint_submitted', caseId }
+        detail: { type: 'complaint_submitted', caseId: targetTrackingId }
       }));
 
       // Reset
@@ -487,7 +488,16 @@ const CyberReport = () => {
       setUserOverrodeCategory(false);
       setConsentAgreed(false);
 
-      navigate('/complaints');
+      if (targetTrackingId) {
+        navigate(`/track/${targetTrackingId}?justSubmitted=true`, {
+          state: {
+            isNewSubmission: true,
+            complaintData: createdComplaint
+          }
+        });
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) {
       console.error(err.response?.data);
       const msg = err.response?.data?.message || 'Submission failed. Please check required fields and retry.';

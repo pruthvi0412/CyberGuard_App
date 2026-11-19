@@ -1,12 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
+import toast from 'react-hot-toast';
 import { safeFormatDate } from '../utils/formatDate';
 import { complaintsAPI } from '../services/api';
 import useAuthStore from '../hooks/useAuthStore';
 import SecureChat from '../components/SecureChat';
-import { ArrowLeft, Search, Shield, RefreshCw, Cpu, Check, AlertCircle } from 'lucide-react';
+import PostSubmissionEmergencyCard from '../components/recovery/PostSubmissionEmergencyCard';
+import {
+  ArrowLeft,
+  Search,
+  Shield,
+  RefreshCw,
+  Cpu,
+  Check,
+  AlertCircle,
+  Upload,
+  FileUp,
+  Paperclip,
+  X,
+  FileCheck
+} from 'lucide-react';
 
 const STATUS_COLOR = {
   pending: '#d8a43a',
@@ -20,11 +35,26 @@ const STATUS_COLOR = {
 export default function TrackComplaint() {
   const { complaintId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuthStore();
   const [id, setId] = useState(complaintId || '');
   const [complaint, setComplaint] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Supplementary evidence state
+  const [supplementaryFiles, setSupplementaryFiles] = useState([]);
+  const [uploadingEvidence, setUploadingEvidence] = useState(false);
+
+  // Parse justSubmitted query param & navigation state
+  const searchParams = new URLSearchParams(location.search);
+  const justSubmitted = searchParams.get('justSubmitted') === 'true' || Boolean(location.state?.isNewSubmission);
+
+  useEffect(() => {
+    if (location.state?.complaintData && !complaint) {
+      setComplaint(location.state.complaintData);
+    }
+  }, [location.state]);
 
   const track = async (searchId) => {
     const q = (searchId || id).trim();
@@ -39,6 +69,46 @@ export default function TrackComplaint() {
       setError(err.response?.data?.message || 'Complaint not found. Please verify the ID.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const refreshComplaint = async (targetId) => {
+    const q = (targetId || complaint?.complaintId || complaint?._id || id).trim();
+    if (!q) return;
+    try {
+      const { data } = await complaintsAPI.track(q);
+      if (data?.data?.complaint) {
+        setComplaint(data.data.complaint);
+      }
+    } catch (err) {
+      console.error('Failed to refresh complaint state:', err);
+    }
+  };
+
+  const handleUploadSupplementaryEvidence = async (e) => {
+    e.preventDefault();
+    if (!supplementaryFiles || supplementaryFiles.length === 0) {
+      toast.error('Please select at least one evidence file to attach.');
+      return;
+    }
+    const complaintTargetId = complaint._id || complaint.complaintId;
+    const formData = new FormData();
+    Array.from(supplementaryFiles).forEach((file) => {
+      formData.append('evidence', file);
+    });
+
+    setUploadingEvidence(true);
+    try {
+      await complaintsAPI.addSupplementaryEvidence(complaintTargetId, formData);
+      toast.success('Supplementary evidence uploaded and sealed under ISO/IEC 27037 custody.');
+      setSupplementaryFiles([]);
+      // Refresh custody timeline and exhibit records
+      await refreshComplaint(complaint.complaintId || complaint._id);
+    } catch (err) {
+      console.error('Evidence upload error:', err);
+      toast.error(err.response?.data?.message || 'Failed to attach supplementary evidence.');
+    } finally {
+      setUploadingEvidence(false);
     }
   };
 
@@ -307,7 +377,251 @@ export default function TrackComplaint() {
                   </div>
                 </div>
 
-                
+                {/* ── Post-Reporting Emergency Recovery Hub ── */}
+                {(justSubmitted || complaint.category === 'Financial Fraud' || complaint.lostMoney) && (
+                  <div style={{ padding: '32px 48px 0', background: '#0a0a0a' }}>
+                    <PostSubmissionEmergencyCard
+                      complaint={complaint}
+                      justSubmitted={justSubmitted}
+                    />
+                  </div>
+                )}
+
+                {/* ── Inline Supplementary Evidence Pipeline ── */}
+                <div style={{ padding: '32px 48px', borderBottom: '1px solid #292927', background: '#0a0a0a' }}>
+                  <div style={{
+                    background: '#111111',
+                    border: '1px solid #242421',
+                    borderRadius: '12px',
+                    padding: '24px 28px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
+                      <div>
+                        <div style={{
+                          fontFamily: "'IBM Plex Mono', monospace",
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          letterSpacing: '0.12em',
+                          color: '#8e8b84',
+                          textTransform: 'uppercase',
+                          marginBottom: 4
+                        }}>
+                          SUPPLEMENTARY EVIDENCE PIPELINE • ISO/IEC 27037
+                        </div>
+                        <h4 style={{
+                          margin: 0,
+                          fontFamily: "'IBM Plex Sans', sans-serif",
+                          fontSize: '18px',
+                          fontWeight: 700,
+                          color: '#ffffff'
+                        }}>
+                          Attach Additional Electronic Evidence
+                        </h4>
+                      </div>
+                      <span style={{
+                        padding: '4px 10px',
+                        background: '#161616',
+                        border: '1px solid #30302d',
+                        borderRadius: '4px',
+                        fontFamily: "'IBM Plex Mono', monospace",
+                        fontSize: '11px',
+                        color: '#3DF5C0'
+                      }}>
+                        {(complaint.evidence || []).length} DEPOSITED EXHIBITS
+                      </span>
+                    </div>
+
+                    <p style={{
+                      margin: '0 0 18px',
+                      fontFamily: "'IBM Plex Sans', sans-serif",
+                      fontSize: '13px',
+                      color: '#a6a39b',
+                      lineHeight: 1.55
+                    }}>
+                      Received subsequent transaction SMS alerts, WhatsApp extortion transcripts, or updated bank statements?
+                      Append them directly to this case. Each file is verified via binary magic bytes and sealed with a SHA-256
+                      digest into the permanent chain of custody.
+                    </p>
+
+                    {user ? (
+                      <form onSubmit={handleUploadSupplementaryEvidence}>
+                        <div style={{
+                          border: '1px dashed #3b3b38',
+                          borderRadius: '8px',
+                          padding: '20px',
+                          background: '#0a0a0a',
+                          textAlign: 'center',
+                          marginBottom: 16
+                        }}>
+                          <input
+                            type="file"
+                            id="supplementary-file-input"
+                            multiple
+                            accept="image/png,image/jpeg,image/webp,application/pdf,text/plain,video/mp4"
+                            style={{ display: 'none' }}
+                            onChange={(e) => {
+                              if (e.target.files) {
+                                setSupplementaryFiles(Array.from(e.target.files));
+                              }
+                            }}
+                          />
+                          <label
+                            htmlFor="supplementary-file-input"
+                            style={{
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              gap: 8
+                            }}
+                          >
+                            <FileUp size={24} color="#3DF5C0" />
+                            <span style={{
+                              fontFamily: "'IBM Plex Sans', sans-serif",
+                              fontSize: '13px',
+                              fontWeight: 700,
+                              color: '#f2f0ea'
+                            }}>
+                              {supplementaryFiles.length > 0
+                                ? `${supplementaryFiles.length} file(s) selected (Click to change)`
+                                : 'Select or drop new transaction screenshots, transcripts, or statements'}
+                            </span>
+                            <span style={{
+                              fontFamily: "'IBM Plex Mono', monospace",
+                              fontSize: '11px',
+                              color: '#8e8b84'
+                            }}>
+                              PNG, JPG, WEBP, PDF, MP4, TXT • Max 20MB per exhibit
+                            </span>
+                          </label>
+
+                          {supplementaryFiles.length > 0 && (
+                            <div style={{
+                              marginTop: 14,
+                              display: 'flex',
+                              flexWrap: 'wrap',
+                              gap: 8,
+                              justifyContent: 'center'
+                            }}>
+                              {supplementaryFiles.map((f, i) => (
+                                <span
+                                  key={i}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    background: '#161616',
+                                    border: '1px solid #30302d',
+                                    borderRadius: 4,
+                                    padding: '4px 10px',
+                                    fontSize: '11px',
+                                    fontFamily: "'IBM Plex Mono', monospace",
+                                    color: '#d8d5ce'
+                                  }}
+                                >
+                                  <Paperclip size={12} color="#3DF5C0" />
+                                  {f.name} ({(f.size / 1024).toFixed(0)} KB)
+                                  <button
+                                    type="button"
+                                    onClick={() => setSupplementaryFiles(supplementaryFiles.filter((_, idx) => idx !== i))}
+                                    style={{
+                                      background: 'transparent',
+                                      border: 'none',
+                                      color: '#8e8b84',
+                                      cursor: 'pointer',
+                                      padding: 0,
+                                      marginLeft: 4
+                                    }}
+                                  >
+                                    <X size={12} />
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                          {supplementaryFiles.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setSupplementaryFiles([])}
+                              style={{
+                                height: '44px',
+                                padding: '0 16px',
+                                background: 'transparent',
+                                border: '1px solid #3b3b38',
+                                color: '#8e8b84',
+                                borderRadius: '8px',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              CLEAR
+                            </button>
+                          )}
+                          <button
+                            type="submit"
+                            disabled={uploadingEvidence || supplementaryFiles.length === 0}
+                            style={{
+                              height: '44px',
+                              padding: '0 24px',
+                              background: supplementaryFiles.length > 0 ? '#3DF5C0' : '#1e1e1c',
+                              color: supplementaryFiles.length > 0 ? '#070707' : '#8e8b84',
+                              border: 'none',
+                              borderRadius: '8px',
+                              fontFamily: "'IBM Plex Sans', sans-serif",
+                              fontSize: '13px',
+                              fontWeight: 800,
+                              letterSpacing: '0.04em',
+                              cursor: uploadingEvidence || supplementaryFiles.length === 0 ? 'not-allowed' : 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 8
+                            }}
+                          >
+                            <Upload size={16} />
+                            <span>{uploadingEvidence ? 'SEALING UNDER ISO/IEC 27037...' : 'SEAL & ATTACH EVIDENCE'}</span>
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div style={{
+                        padding: '14px 18px',
+                        background: '#0a0a0a',
+                        border: '1px solid #242421',
+                        borderRadius: '6px',
+                        fontSize: '13px',
+                        color: '#8e8b84',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: 12
+                      }}>
+                        <span>Sign in with your registered account to append new evidence files to this complaint.</span>
+                        <button
+                          type="button"
+                          onClick={() => navigate('/login')}
+                          style={{
+                            background: '#1a1a19',
+                            border: '1px solid #3b3b38',
+                            color: '#3DF5C0',
+                            padding: '6px 14px',
+                            borderRadius: '4px',
+                            fontWeight: 700,
+                            fontSize: '12px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          SIGN IN
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {/* Multi-Stage Investigation Milestone Tracker */}
                 {(() => {
                   const backendStage = complaint.milestone?.stage ? (complaint.milestone.stage - 1) : 0;

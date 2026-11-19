@@ -28,6 +28,11 @@ router.post(
   complaintValidation,
   ctrl.createComplaint
 );
+router.post(
+  '/:id/supplementary-evidence',
+  ctrl.upload,
+  ctrl.addSupplementaryEvidence
+);
 router.get('/', ctrl.getComplaints);
 router.get('/:id', ctrl.getComplaint);
 router.get('/:id/custody', ctrl.getCustodyLedger);

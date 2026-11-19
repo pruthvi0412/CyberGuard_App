@@ -2663,3 +2663,98 @@ exports.getRestitutionStatus = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Attach supplementary evidence to an existing complaint (ISO/IEC 27037 compliant)
+ * POST /api/complaints/:id/supplementary-evidence
+ */
+exports.addSupplementaryEvidence = async (req, res, next) => {
+  try {
+    const isObjectId = req.params.id && req.params.id.match(/^[0-9a-fA-F]{24}$/);
+    const complaint = isObjectId 
+      ? await Complaint.findById(req.params.id)
+      : await Complaint.findOne({ complaintId: req.params.id });
+
+    if (!complaint) {
+      return next(new AppError('Complaint not found.', 404));
+    }
+
+    if (!checkComplaintAccess(complaint, req.user)) {
+      return next(new AppError('You do not have permission to attach supplementary evidence to this complaint.', 403));
+    }
+
+    if (!req.files || req.files.length === 0) {
+      return next(new AppError('No evidence files provided.', 400));
+    }
+
+    const newEvidenceItems = [];
+    for (const file of req.files) {
+      try {
+        const sec = await processUploadedEvidence(file);
+        const evidenceItem = {
+          filename: file.filename,
+          originalName: file.originalname,
+          mimetype: file.mimetype,
+          verifiedMime: sec.verifiedMime,
+          size: file.size,
+          sha256: sec.sha256,
+          url: `/uploads/evidence/${file.filename}`,
+          integrityStatus: 'verified',
+          uploadedAt: new Date()
+        };
+        complaint.evidence.push(evidenceItem);
+        newEvidenceItems.push(evidenceItem);
+      } catch (secError) {
+        logger.warn(`Supplementary evidence validation rejected: ${secError.message}`);
+        return next(new AppError(secError.message, 400));
+      }
+    }
+
+    const primaryHash = newEvidenceItems[0]?.sha256 || '';
+    const fileNames = newEvidenceItems.map(f => f.originalName).join(', ');
+
+    // Push immutable audit event to chainOfCustody
+    complaint.chainOfCustody.push({
+      action: 'SUPPLEMENTARY_EVIDENCE_ATTACHED',
+      actor: req.user.name || req.user.role,
+      actorId: req.user._id,
+      actorRole: req.user.role,
+      performedBy: req.user._id,
+      role: req.user.role,
+      details: `Supplementary electronic evidence (${fileNames}) cryptographically verified and sealed under ISO/IEC 27037 standards. SHA-256: ${primaryHash ? primaryHash.substring(0, 16) + '...' : 'N/A'}`,
+      evidenceHash: primaryHash,
+      sha256: primaryHash,
+      timestamp: new Date()
+    });
+
+    // Push update into timeline
+    complaint.timeline.push({
+      status: complaint.status || 'under_review',
+      message: 'Supplementary electronic evidence attached and sealed under ISO/IEC 27037 custody.',
+      updatedBy: req.user._id,
+      timestamp: new Date()
+    });
+
+    await complaint.save();
+
+    // Trigger OCR Background Analysis
+    try {
+      processOCR(complaint._id, req.files);
+    } catch (ocrErr) {
+      logger.error(`OCR processing error for supplementary evidence: ${ocrErr.message}`);
+    }
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Supplementary electronic evidence attached and sealed under ISO/IEC 27037 custody.',
+      data: {
+        evidence: complaint.evidence,
+        chainOfCustody: complaint.chainOfCustody,
+        timeline: complaint.timeline,
+        newEvidence: newEvidenceItems
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};

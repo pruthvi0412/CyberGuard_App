@@ -238,5 +238,97 @@ describe('Security, RBAC & Legal Accuracy Audit Regression Tests', () => {
       expect(serverCode).not.toContain('pruthvishetty04@gmail.com');
       expect(serverCode).not.toContain('admin@cybercrime.gov');
     });
+
+    test('addSupplementaryEvidence controller attaches files under ISO/IEC 27037 custody', async () => {
+      const mockComplaint = {
+        _id: new mongoose.Types.ObjectId(),
+        complaintId: 'CMP-2026-SUPP',
+        userId: citizenA_Id,
+        assignedTo: officerA_Id,
+        status: 'investigating',
+        evidence: [],
+        chainOfCustody: [],
+        timeline: [],
+        save: jest.fn().mockResolvedValue(true)
+      };
+
+      jest.spyOn(Complaint, 'findById').mockResolvedValue(mockComplaint);
+
+      const os = require('os');
+      const tmpFile = path.join(os.tmpdir(), `test-supp-${Date.now()}.pdf`);
+      fs.writeFileSync(tmpFile, '%PDF-1.4\nSupplementary Bank Statement PDF Content');
+
+      try {
+        const fakeFile = {
+          filename: 'evidence-test.pdf',
+          originalname: 'statement.pdf',
+          mimetype: 'application/pdf',
+          size: 45,
+          path: tmpFile
+        };
+
+        const req = {
+          params: { id: mockComplaint._id.toString() },
+          user: userA,
+          files: [fakeFile]
+        };
+
+        let resStatus = null;
+        let resData = null;
+        const res = {
+          status: jest.fn().mockImplementation((code) => {
+            resStatus = code;
+            return {
+              json: jest.fn().mockImplementation((payload) => {
+                resData = payload;
+                return payload;
+              })
+            };
+          })
+        };
+        const next = jest.fn();
+
+        await complaintsController.addSupplementaryEvidence(req, res, next);
+
+        expect(resStatus).toBe(200);
+        expect(resData.status).toBe('success');
+        expect(mockComplaint.evidence.length).toBe(1);
+        expect(mockComplaint.evidence[0].sha256).toBeDefined();
+        expect(mockComplaint.evidence[0].sha256.length).toBe(64);
+        expect(mockComplaint.chainOfCustody.length).toBe(1);
+        expect(mockComplaint.chainOfCustody[0].action).toBe('SUPPLEMENTARY_EVIDENCE_ATTACHED');
+        expect(mockComplaint.timeline.length).toBe(1);
+        expect(mockComplaint.timeline[0].message).toContain('ISO/IEC 27037 custody');
+        expect(mockComplaint.save).toHaveBeenCalled();
+      } finally {
+        if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
+      }
+    });
+
+    test('addSupplementaryEvidence enforces access control and rejects unauthorized user', async () => {
+      const mockComplaint = {
+        _id: new mongoose.Types.ObjectId(),
+        complaintId: 'CMP-2026-SUPP2',
+        userId: citizenA_Id,
+        assignedTo: officerA_Id,
+        status: 'investigating'
+      };
+
+      jest.spyOn(Complaint, 'findById').mockResolvedValue(mockComplaint);
+
+      const req = {
+        params: { id: mockComplaint._id.toString() },
+        user: userB, // unauthorized user
+        files: [{ filename: 'test.png' }]
+      };
+
+      const res = {};
+      const next = jest.fn();
+
+      await complaintsController.addSupplementaryEvidence(req, res, next);
+      expect(next).toHaveBeenCalled();
+      const err = next.mock.calls[0][0];
+      expect(err.statusCode).toBe(403);
+    });
   });
 });
